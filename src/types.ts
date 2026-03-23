@@ -1,6 +1,6 @@
 export type PieceType = "rock" | "paper" | "scissors";
 export type PlayerId = 1 | 2;
-export type Phase = "waiting" | "turn" | "battle_pick" | "game_over";
+export type Phase = "waiting" | "setup" | "turn" | "battle_pick" | "game_over";
 export type KnownType = PieceType | "hidden";
 export type ViewMode = "home" | "connecting" | "room" | "error";
 
@@ -17,6 +17,11 @@ export interface BattleState {
   round: number;
 }
 
+export interface SetupState {
+  yourReady: boolean;
+  opponentReady: boolean;
+}
+
 export interface RoomSnapshot {
   roomId: string;
   phase: Phase;
@@ -25,6 +30,7 @@ export interface RoomSnapshot {
   currentPlayer: PlayerId | null;
   selectedPieceId: string | null;
   winner: PlayerId | null;
+  setup: SetupState;
   battle: BattleState | null;
   message: string;
   lastBattleSummary: string;

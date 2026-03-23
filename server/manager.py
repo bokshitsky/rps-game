@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 import secrets
 from typing import Any, Optional
 
@@ -18,37 +19,31 @@ def compare_types(attacker: str, defender: str) -> str:
 
 def create_chess_like_cells(player_id: int) -> list[dict[str, int]]:
     main_rows = [5, 4] if player_id == 1 else [0, 1]
-    extra_row = 3 if player_id == 1 else 2
     cells: list[dict[str, int]] = []
     for row in main_rows:
         for col in range(BOARD_COLS):
             cells.append({"col": col, "row": row})
-    cells.extend([{"col": 3, "row": extra_row}, {"col": 4, "row": extra_row}])
     return cells
 
 
-def create_initial_pieces() -> list[Piece]:
-    distribution = ["rock"] * 6 + ["paper"] * 6 + ["scissors"] * 6
-    p1_cells = create_chess_like_cells(1)
-    p2_cells = create_chess_like_cells(2)
+def create_random_distribution() -> list[str]:
+    distribution = ["rock"] * 5 + ["paper"] * 5 + ["scissors"] * 5 + [random.choice(PIECE_TYPES)]
+    random.shuffle(distribution)
+    return distribution
+
+
+def create_player_pieces(player_id: int) -> list[Piece]:
+    distribution = create_random_distribution()
+    cells = create_chess_like_cells(player_id)
     pieces: list[Piece] = []
     for index, piece_type in enumerate(distribution):
         pieces.append(
             Piece(
-                id=f"p1-{index}",
-                owner=1,
+                id=f"p{player_id}-{index}",
+                owner=player_id,
                 type=piece_type,
-                col=p1_cells[index]["col"],
-                row=p1_cells[index]["row"],
-            )
-        )
-        pieces.append(
-            Piece(
-                id=f"p2-{index}",
-                owner=2,
-                type=piece_type,
-                col=p2_cells[index]["col"],
-                row=p2_cells[index]["row"],
+                col=cells[index]["col"],
+                row=cells[index]["row"],
             )
         )
     return pieces
@@ -80,7 +75,7 @@ class RoomManager:
             room.sockets[player_id] = websocket
 
             if room.registered_players() == 2 and room.phase == "waiting":
-                self._start_match(room)
+                self._start_setup(room)
             elif room.phase != "waiting" and room.connected_players() < 2:
                 room.message = "Противник отключился. Ждем переподключения."
 
@@ -112,6 +107,10 @@ class RoomManager:
                 )
             elif action_type == "battle_choice":
                 self._resolve_battle_choice(room, player_id, str(payload["choice"]))
+            elif action_type == "reroll_setup":
+                self._reroll_setup(room, player_id)
+            elif action_type == "ready_setup":
+                self._ready_setup(room, player_id)
 
     async def notify_refresh(self, room: Room) -> None:
         stale_players: list[int] = []
@@ -139,15 +138,42 @@ class RoomManager:
 
         raise HTTPException(status_code=403, detail="Room is full")
 
+    def _start_setup(self, room: Room) -> None:
+        room.phase = "setup"
+        room.current_player = None
+        room.pieces = create_player_pieces(1) + create_player_pieces(2)
+        room.winner = None
+        room.battle = None
+        room.turn_count = 0
+        room.last_battle_summary = ""
+        room.ready_players = {1: False, 2: False}
+        room.message = "Оба игрока подключились. Пересбросьте расстановку при желании и нажмите «Готов»."
+
     def _start_match(self, room: Room) -> None:
         room.phase = "turn"
         room.current_player = 1
-        room.pieces = create_initial_pieces()
-        room.winner = None
-        room.battle = None
         room.turn_count = 1
-        room.last_battle_summary = ""
-        room.message = "Оба игрока подключились. Ход игрока 1."
+        room.message = "Оба игрока готовы. Ход игрока 1."
+
+    def _replace_player_pieces(self, room: Room, player_id: int) -> None:
+        other_pieces = [piece for piece in room.pieces if piece.owner != player_id]
+        room.pieces = other_pieces + create_player_pieces(player_id)
+
+    def _reroll_setup(self, room: Room, player_id: int) -> None:
+        if room.connected_players() < 2 or room.phase != "setup":
+            return
+        self._replace_player_pieces(room, player_id)
+        room.ready_players[player_id] = False
+        room.message = f"Игрок {player_id} пересобрал стартовую расстановку."
+
+    def _ready_setup(self, room: Room, player_id: int) -> None:
+        if room.connected_players() < 2 or room.phase != "setup":
+            return
+        room.ready_players[player_id] = True
+        if room.ready_players.get(1) and room.ready_players.get(2):
+            self._start_match(room)
+            return
+        room.message = f"Игрок {player_id} готов. Ждем подтверждение соперника."
 
     def _is_adjacent(self, piece: Piece, col: int, row: int) -> bool:
         return abs(piece.col - col) + abs(piece.row - row) == 1

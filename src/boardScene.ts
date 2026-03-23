@@ -205,6 +205,9 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
       if (snapshot.phase === "waiting") {
         return "Ожидание";
       }
+      if (snapshot.phase === "setup") {
+        return "Подготовка";
+      }
       if (snapshot.phase === "game_over") {
         return `Победа: игрок ${snapshot.winner}`;
       }
@@ -288,7 +291,7 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
               : snapshot?.phase === "waiting"
                 ? {
                     title: "Комната Создана",
-                    body: "Отправьте ссылку сопернику. Как только второй игрок зайдет, матч начнется автоматически.",
+                    body: "Отправьте ссылку сопернику. Когда второй игрок зайдет, оба соберут стартовую расстановку и нажмут «Готов».",
                   }
                 : snapshot?.phase === "game_over"
                   ? {

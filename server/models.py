@@ -37,6 +37,7 @@ class Room:
     message: str = "Ждем второго игрока по ссылке."
     turn_count: int = 0
     last_battle_summary: str = ""
+    ready_players: dict[int, bool] = field(default_factory=dict)
     player_tokens: dict[int, str] = field(default_factory=dict)
     sockets: dict[int, WebSocket] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -68,6 +69,8 @@ class Room:
             return False
         if self.phase == "turn":
             return self.current_player == player_id
+        if self.phase == "setup":
+            return True
         if self.phase == "battle_pick" and self.battle:
             return self.battle.chooser == player_id
         return False
@@ -92,6 +95,10 @@ class Room:
             "currentPlayer": self.current_player,
             "selectedPieceId": None,
             "winner": self.winner,
+            "setup": {
+                "yourReady": self.ready_players.get(player_id, False),
+                "opponentReady": self.ready_players.get(2 if player_id == 1 else 1, False),
+            },
             "battle": None
             if not self.battle
             else {

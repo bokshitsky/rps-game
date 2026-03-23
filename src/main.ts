@@ -87,7 +87,9 @@ function roomStatusText(): string {
   const lobbyState =
     roomSnapshot.phase === "waiting"
       ? `Подключено ${roomSnapshot.connectedPlayers}/${roomSnapshot.requiredPlayers}.`
-      : `Подключено ${roomSnapshot.connectedPlayers}/${roomSnapshot.requiredPlayers}. Игра активна.`;
+      : roomSnapshot.phase === "setup"
+        ? `Подключено ${roomSnapshot.connectedPlayers}/${roomSnapshot.requiredPlayers}. Идет подготовка.`
+        : `Подключено ${roomSnapshot.connectedPlayers}/${roomSnapshot.requiredPlayers}. Игра активна.`;
 
   return `${role} ${lobbyState}`;
 }
@@ -350,6 +352,20 @@ async function postAction(payload: Record<string, unknown>): Promise<void> {
   await fetchSnapshot(currentRoomId);
 }
 
+function rerollSetup(): void {
+  if (!roomSnapshot || roomSnapshot.phase !== "setup" || !roomSnapshot.canAct) {
+    return;
+  }
+  void postAction({ type: "reroll_setup" });
+}
+
+function readySetup(): void {
+  if (!roomSnapshot || roomSnapshot.phase !== "setup" || !roomSnapshot.canAct || roomSnapshot.setup.yourReady) {
+    return;
+  }
+  void postAction({ type: "ready_setup" });
+}
+
 function handleBoardClick(col: number, row: number): void {
   if (!roomSnapshot || !canUseLocalTurnInteractions()) {
     return;
@@ -440,6 +456,18 @@ function syncUi(): void {
       ui.battleChoicePanel.appendChild(button);
     }
   }
+
+  const showSetup = roomSnapshot?.phase === "setup" && roomSnapshot.connectedPlayers === roomSnapshot.requiredPlayers;
+  ui.setupPanel.classList.toggle("hidden", !showSetup);
+
+  if (showSetup && roomSnapshot) {
+    ui.readySetupBtn.disabled = roomSnapshot.setup.yourReady;
+    ui.readySetupBtn.textContent = roomSnapshot.setup.yourReady ? "Готово" : "Готов";
+    ui.rerollSetupBtn.disabled = false;
+    ui.setupStatusLine.textContent = roomSnapshot.setup.opponentReady
+      ? "Соперник уже готов. Можно подтвердить старт или пересобрать свою линию."
+      : "Пересоберите свои 16 фигур при желании. У вас 5/5/5 и одна случайная фигура.";
+  }
 }
 
 function requestRender(): void {
@@ -468,6 +496,7 @@ function renderGameToText(): string {
     yourPlayerId: roomSnapshot.yourPlayerId,
     currentPlayer: roomSnapshot.currentPlayer,
     selectedPieceId: localSelectedPieceId,
+    setup: roomSnapshot.setup,
     visiblePieces: roomSnapshot.visiblePieces,
     counts: roomSnapshot.counts,
     connectedPlayers: roomSnapshot.connectedPlayers,
@@ -537,6 +566,12 @@ ui.confirmConfigBtn.addEventListener("click", () => {
 });
 ui.copyLinkBtn.addEventListener("click", () => {
   void copyInviteLink();
+});
+ui.rerollSetupBtn.addEventListener("click", () => {
+  rerollSetup();
+});
+ui.readySetupBtn.addEventListener("click", () => {
+  readySetup();
 });
 ui.fullscreenBtn.addEventListener("click", () => {
   void toggleFullscreen();

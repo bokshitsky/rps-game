@@ -27,14 +27,38 @@ try {
     const raw = window.render_game_to_text();
     if (!raw) return false;
     const data = JSON.parse(raw);
-    return data.mode === "turn" && Array.isArray(data.visiblePieces) && data.visiblePieces.length === 36;
+    return data.mode === "setup" && Array.isArray(data.visiblePieces) && data.visiblePieces.length === 32;
   });
 
   await host.waitForFunction(() => {
     const raw = window.render_game_to_text();
     if (!raw) return false;
     const data = JSON.parse(raw);
-    return data.mode === "turn" && Array.isArray(data.visiblePieces) && data.visiblePieces.length === 36;
+    return data.mode === "setup" && Array.isArray(data.visiblePieces) && data.visiblePieces.length === 32;
+  });
+
+  await host.screenshot({ path: `${outDir}/host-setup.png`, fullPage: true });
+  await guest.screenshot({ path: `${outDir}/guest-setup.png`, fullPage: true });
+  const hostSetupState = await host.evaluate(() => window.render_game_to_text());
+  const guestSetupState = await guest.evaluate(() => window.render_game_to_text());
+
+  await host.click("#reroll-setup-btn");
+  await host.waitForTimeout(300);
+  await host.click("#ready-setup-btn");
+  await guest.click("#ready-setup-btn");
+
+  await guest.waitForFunction(() => {
+    const raw = window.render_game_to_text();
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    return data.mode === "turn" && Array.isArray(data.visiblePieces) && data.visiblePieces.length === 32;
+  });
+
+  await host.waitForFunction(() => {
+    const raw = window.render_game_to_text();
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    return data.mode === "turn" && Array.isArray(data.visiblePieces) && data.visiblePieces.length === 32;
   });
 
   const hostState = await host.evaluate(() => window.render_game_to_text());
@@ -44,6 +68,8 @@ try {
   await guest.screenshot({ path: `${outDir}/guest-active.png`, fullPage: true });
 
   fs.writeFileSync(`${outDir}/waiting-state.json`, waitingState);
+  fs.writeFileSync(`${outDir}/host-setup-state.json`, hostSetupState);
+  fs.writeFileSync(`${outDir}/guest-setup-state.json`, guestSetupState);
   fs.writeFileSync(`${outDir}/host-state.json`, hostState);
   fs.writeFileSync(`${outDir}/guest-state.json`, guestState);
 

@@ -6,6 +6,10 @@ export interface AppShellRefs {
   copyLinkBtn: HTMLButtonElement;
   fullscreenBtn: HTMLButtonElement;
   battleChoicePanel: HTMLDivElement;
+  setupPanel: HTMLDivElement;
+  rerollSetupBtn: HTMLButtonElement;
+  readySetupBtn: HTMLButtonElement;
+  setupStatusLine: HTMLDivElement;
   footerStatusLine: HTMLSpanElement;
   footerConnectionLine: HTMLSpanElement;
   gameHost: HTMLDivElement;
@@ -98,6 +102,7 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
       cursor: not-allowed;
     }
     .board-wrap {
+      position: relative;
       display: grid;
       justify-items: center;
     }
@@ -117,6 +122,34 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
       gap: 10px;
       flex-wrap: wrap;
       margin-top: 10px;
+    }
+    .setup-panel {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(19,33,47,0.12);
+      box-shadow: 0 16px 40px rgba(19,33,47,0.18);
+      backdrop-filter: blur(10px);
+      min-width: 260px;
+      text-align: center;
+    }
+    .setup-panel .setup-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .setup-panel .setup-status {
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 280px;
     }
     .footer {
       margin-top: 12px;
@@ -192,6 +225,13 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
       </div>
       <div class="board-wrap">
         <div id="game-host"></div>
+        <div id="setup-panel" class="setup-panel hidden">
+          <div class="setup-actions">
+            <button id="ready-setup-btn">Готов</button>
+            <button id="reroll-setup-btn" class="secondary">Пересбросить</button>
+          </div>
+          <div id="setup-status" class="setup-status"></div>
+        </div>
       </div>
       <div id="choice-panel" class="choice-row hidden"></div>
       <div class="footer">
@@ -219,6 +259,10 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
   const copyLinkBtn = app.querySelector<HTMLButtonElement>("#copy-link-btn");
   const fullscreenBtn = app.querySelector<HTMLButtonElement>("#fullscreen-btn");
   const battleChoicePanel = app.querySelector<HTMLDivElement>("#choice-panel");
+  const setupPanel = app.querySelector<HTMLDivElement>("#setup-panel");
+  const rerollSetupBtn = app.querySelector<HTMLButtonElement>("#reroll-setup-btn");
+  const readySetupBtn = app.querySelector<HTMLButtonElement>("#ready-setup-btn");
+  const setupStatusLine = app.querySelector<HTMLDivElement>("#setup-status");
   const footerStatusLine = app.querySelector<HTMLSpanElement>("#status-line");
   const footerConnectionLine = app.querySelector<HTMLSpanElement>("#connection-line");
   const gameHost = app.querySelector<HTMLDivElement>("#game-host");
@@ -232,6 +276,10 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     !copyLinkBtn ||
     !fullscreenBtn ||
     !battleChoicePanel ||
+    !setupPanel ||
+    !rerollSetupBtn ||
+    !readySetupBtn ||
+    !setupStatusLine ||
     !footerStatusLine ||
     !footerConnectionLine ||
     !gameHost ||
@@ -249,6 +297,10 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     copyLinkBtn,
     fullscreenBtn,
     battleChoicePanel,
+    setupPanel,
+    rerollSetupBtn,
+    readySetupBtn,
+    setupStatusLine,
     footerStatusLine,
     footerConnectionLine,
     gameHost,
