@@ -161,25 +161,6 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
 
       this.drawPlayerSummary(1, snapshot, 230);
       this.drawPlayerSummary(2, snapshot, 410);
-
-      if (snapshot?.lastBattleSummary) {
-        this.keep(
-          this.add.text(boardWidth + 22, 590, "Последний бой", {
-            fontFamily: "Trebuchet MS, sans-serif",
-            fontSize: "18px",
-            color: "#fde68a",
-            fontStyle: "bold",
-          }),
-        );
-        this.keep(
-          this.add.text(boardWidth + 22, 622, wrapLines(snapshot.lastBattleSummary, 30).join("\n"), {
-            fontFamily: "Trebuchet MS, sans-serif",
-            fontSize: "18px",
-            color: "#f8fafc",
-            lineSpacing: 4,
-          }),
-        );
-      }
     }
 
     private sidePanelTitle(snapshot: RoomSnapshot | null): string {
@@ -208,7 +189,7 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
       if (snapshot.phase === "battle_pick" && snapshot.battle) {
         return `Выбор: игрок ${snapshot.battle.chooser}`;
       }
-      return `Ход: игрок ${snapshot.currentPlayer}`;
+      return snapshot.canAct ? "Ваш ход" : "Ход соперника";
     }
 
     private drawPlayerSummary(player: PlayerId, snapshot: RoomSnapshot | null, y: number): void {

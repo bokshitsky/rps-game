@@ -153,7 +153,7 @@ class RoomManager:
         room.phase = "turn"
         room.current_player = 1
         room.turn_count = 1
-        room.message = "Оба игрока готовы. Ход игрока 1."
+        room.message = ""
 
     def _replace_player_pieces(self, room: Room, player_id: int) -> None:
         other_pieces = [piece for piece in room.pieces if piece.owner != player_id]
@@ -173,7 +173,7 @@ class RoomManager:
         if room.ready_players.get(1) and room.ready_players.get(2):
             self._start_match(room)
             return
-        room.message = f"Игрок {player_id} готов. Ждем подтверждение соперника."
+        room.message = "Ждем подтверждение соперника."
 
     def _is_adjacent(self, piece: Piece, col: int, row: int) -> bool:
         return abs(piece.col - col) + abs(piece.row - row) == 1
@@ -196,7 +196,7 @@ class RoomManager:
 
         selected.col = col
         selected.row = row
-        self._end_turn(room, f"Игрок {player_id} переместил фигуру.")
+        self._end_turn(room)
 
     def _attempt_capture(self, room: Room, player_id: int, piece_id: str, col: int, row: int) -> None:
         selected = self._load_action_piece(room, player_id, piece_id)
@@ -284,10 +284,10 @@ class RoomManager:
             room.winner = winner
             room.message = f"Игрок {winner} победил и захватил поле."
             return
-        self._end_turn(room, room.last_battle_summary or f"Игрок {room.current_player} завершил действие.")
+        self._end_turn(room)
 
-    def _end_turn(self, room: Room, message: str) -> None:
+    def _end_turn(self, room: Room) -> None:
         room.current_player = 2 if room.current_player == 1 else 1
         room.phase = "turn"
         room.turn_count += 1
-        room.message = f"{message} Теперь ход игрока {room.current_player}."
+        room.message = ""

@@ -4,7 +4,6 @@ export interface AppShellRefs {
   root: HTMLDivElement;
   startBtn: HTMLButtonElement;
   copyLinkBtn: HTMLButtonElement;
-  fullscreenBtn: HTMLButtonElement;
   battleChoicePanel: HTMLDivElement;
   setupPanel: HTMLDivElement;
   rerollSetupBtn: HTMLButtonElement;
@@ -220,7 +219,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
         <div class="actions">
           <button id="start-btn">Новая игра</button>
           <button id="copy-link-btn" class="secondary" disabled>Копировать ссылку</button>
-          <button id="fullscreen-btn" class="secondary">Полный экран</button>
         </div>
       </div>
       <div class="board-wrap">
@@ -257,7 +255,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
 
   const startBtn = app.querySelector<HTMLButtonElement>("#start-btn");
   const copyLinkBtn = app.querySelector<HTMLButtonElement>("#copy-link-btn");
-  const fullscreenBtn = app.querySelector<HTMLButtonElement>("#fullscreen-btn");
   const battleChoicePanel = app.querySelector<HTMLDivElement>("#choice-panel");
   const setupPanel = app.querySelector<HTMLDivElement>("#setup-panel");
   const rerollSetupBtn = app.querySelector<HTMLButtonElement>("#reroll-setup-btn");
@@ -274,7 +271,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
   if (
     !startBtn ||
     !copyLinkBtn ||
-    !fullscreenBtn ||
     !battleChoicePanel ||
     !setupPanel ||
     !rerollSetupBtn ||
@@ -295,7 +291,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     root: app,
     startBtn,
     copyLinkBtn,
-    fullscreenBtn,
     battleChoicePanel,
     setupPanel,
     rerollSetupBtn,

@@ -521,14 +521,6 @@ async function copyInviteLink(): Promise<void> {
   }
 }
 
-async function toggleFullscreen(): Promise<void> {
-  if (!document.fullscreenElement) {
-    await ui.root.requestFullscreen();
-  } else {
-    await document.exitFullscreen();
-  }
-}
-
 const BoardScene = createBoardScene({
   getSnapshot: () => roomSnapshot,
   getSelectedPieceId: () => localSelectedPieceId,
@@ -573,21 +565,12 @@ ui.rerollSetupBtn.addEventListener("click", () => {
 ui.readySetupBtn.addEventListener("click", () => {
   readySetup();
 });
-ui.fullscreenBtn.addEventListener("click", () => {
-  void toggleFullscreen();
-});
 
 window.addEventListener("keydown", (event) => {
-  if (event.key.toLowerCase() === "f") {
-    event.preventDefault();
-    void toggleFullscreen();
-  }
   if (event.key === "Escape") {
     showConfigModal(false);
   }
 });
-
-document.addEventListener("fullscreenchange", requestRender);
 window.addEventListener("resize", requestRender);
 
 window.render_game_to_text = renderGameToText;
