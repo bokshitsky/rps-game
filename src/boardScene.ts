@@ -95,6 +95,20 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
       if (selectedPieceId) {
         const selected = snapshot?.visiblePieces.find((piece) => piece.id === selectedPieceId);
         if (selected) {
+          for (const { col, row } of this.adjacentCells(selected.col, selected.row)) {
+            const occupant = snapshot?.visiblePieces.find((piece) => piece.col === col && piece.row === row);
+            if (occupant?.owner === selected.owner) {
+              continue;
+            }
+            const displayTarget = this.toDisplayCoords(col, row);
+            const isAttack = occupant && occupant.owner !== selected.owner;
+
+            board.fillStyle(isAttack ? 0xdc2626 : 0xf8fafc, isAttack ? 0.26 : 0.18);
+            board.fillRect(displayTarget.col * cellSize + 12, displayTarget.row * cellSize + 12, cellSize - 24, cellSize - 24);
+            board.lineStyle(4, isAttack ? 0xf87171 : 0xffffff, 0.95);
+            board.strokeRect(displayTarget.col * cellSize + 10, displayTarget.row * cellSize + 10, cellSize - 20, cellSize - 20);
+          }
+
           const display = this.toDisplayCoords(selected.col, selected.row);
           board.lineStyle(4, 0xf8fafc, 1);
           board.strokeRect(display.col * cellSize + 4, display.row * cellSize + 4, cellSize - 8, cellSize - 8);
@@ -135,6 +149,15 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
 
     private toLogicalCoords(col: number, row: number): { col: number; row: number } {
       return this.toDisplayCoords(col, row);
+    }
+
+    private adjacentCells(col: number, row: number): Array<{ col: number; row: number }> {
+      return [
+        { col: col - 1, row },
+        { col: col + 1, row },
+        { col, row: row - 1 },
+        { col, row: row + 1 },
+      ].filter((cell) => cell.col >= 0 && cell.col < boardCols && cell.row >= 0 && cell.row < boardRows);
     }
 
     private drawSidePanel(): void {
