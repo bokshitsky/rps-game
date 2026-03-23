@@ -36,3 +36,4 @@ Notes:
 - Switched multiplayer transport to HTTP for actions and state fetches, with WebSocket used only as a refresh signal.
 
 - Moved board perspective handling to the frontend renderer so player 2 now sees the board rotated like a chess opponent view; clicks are translated back into logical server coordinates.
+- Split server/app.py into package modules: server models, constants, schemas, and room manager logic, with app.py left as the FastAPI entrypoint.
