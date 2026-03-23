@@ -49,7 +49,6 @@ class Room:
     phase: str = "waiting"
     current_player: Optional[int] = None
     pieces: list[Piece] = field(default_factory=list)
-    selected_piece_id: Optional[str] = None
     winner: Optional[int] = None
     battle: Optional[BattleState] = None
     message: str = "Ждем второго игрока по ссылке."
@@ -81,11 +80,6 @@ class Room:
     def get_alive_pieces(self, owner: int) -> list[Piece]:
         return [piece for piece in self.pieces if piece.alive and piece.owner == owner]
 
-    def viewer_selected_piece_id(self, viewer: int) -> Optional[str]:
-        if self.phase == "turn" and self.current_player == viewer:
-            return self.selected_piece_id
-        return None
-
     def can_act(self, player_id: int) -> bool:
         if self.connected_players() < 2:
             return False
@@ -114,7 +108,7 @@ class Room:
             "yourPlayerId": player_id,
             "playerToken": self.player_tokens[player_id],
             "currentPlayer": self.current_player,
-            "selectedPieceId": self.viewer_selected_piece_id(player_id),
+            "selectedPieceId": None,
             "winner": self.winner,
             "battle": None
             if not self.battle
@@ -220,8 +214,22 @@ class RoomManager:
     async def handle_action(self, room: Room, player_id: int, payload: dict[str, Any]) -> None:
         async with room.lock:
             action_type = payload.get("type")
-            if action_type == "cell_click":
-                self._handle_cell_click(room, player_id, int(payload["col"]), int(payload["row"]))
+            if action_type == "move_piece":
+                self._move_piece(
+                    room,
+                    player_id,
+                    str(payload["pieceId"]),
+                    int(payload["targetCol"]),
+                    int(payload["targetRow"]),
+                )
+            elif action_type == "attempt_capture":
+                self._attempt_capture(
+                    room,
+                    player_id,
+                    str(payload["pieceId"]),
+                    int(payload["targetCol"]),
+                    int(payload["targetRow"]),
+                )
             elif action_type == "battle_choice":
                 self._resolve_battle_choice(room, player_id, str(payload["choice"]))
 
@@ -255,7 +263,6 @@ class RoomManager:
         room.phase = "turn"
         room.current_player = 1
         room.pieces = create_initial_pieces()
-        room.selected_piece_id = None
         room.winner = None
         room.battle = None
         room.turn_count = 1
@@ -265,39 +272,36 @@ class RoomManager:
     def _is_adjacent(self, piece: Piece, col: int, row: int) -> bool:
         return abs(piece.col - col) + abs(piece.row - row) == 1
 
-    def _handle_cell_click(self, room: Room, player_id: int, col: int, row: int) -> None:
+    def _load_action_piece(self, room: Room, player_id: int, piece_id: str) -> Optional[Piece]:
         if room.connected_players() < 2 or room.phase != "turn" or room.current_player != player_id:
+            return None
+        piece = room.get_piece_by_id(piece_id)
+        if not piece or not piece.alive or piece.owner != player_id:
+            return None
+        return piece
+
+    def _move_piece(self, room: Room, player_id: int, piece_id: str, col: int, row: int) -> None:
+        selected = self._load_action_piece(room, player_id, piece_id)
+        if not selected or not self._is_adjacent(selected, col, row):
             return
 
-        clicked_piece = room.get_piece_at(col, row)
-        if clicked_piece and clicked_piece.owner == player_id:
-            room.selected_piece_id = clicked_piece.id
-            room.message = f"Игрок {player_id}: фигура выбрана. Сделайте ход на соседнюю клетку."
+        if room.get_piece_at(col, row):
             return
 
-        if not room.selected_piece_id:
+        selected.col = col
+        selected.row = row
+        self._end_turn(room, f"Игрок {player_id} переместил фигуру.")
+
+    def _attempt_capture(self, room: Room, player_id: int, piece_id: str, col: int, row: int) -> None:
+        selected = self._load_action_piece(room, player_id, piece_id)
+        if not selected or not self._is_adjacent(selected, col, row):
             return
 
-        selected = room.get_piece_by_id(room.selected_piece_id)
-        if not selected or not selected.alive:
-            room.selected_piece_id = None
+        target = room.get_piece_at(col, row)
+        if not target or target.owner == player_id:
             return
 
-        if not self._is_adjacent(selected, col, row):
-            room.message = "Ходить можно только на 1 клетку по вертикали или горизонтали."
-            return
-
-        if not clicked_piece:
-            selected.col = col
-            selected.row = row
-            self._end_turn(room, f"Игрок {player_id} переместил фигуру.")
-            return
-
-        if clicked_piece.owner == player_id:
-            room.message = "Нельзя ходить на клетку со своей фигурой."
-            return
-
-        self._begin_battle(room, selected, clicked_piece)
+        self._begin_battle(room, selected, target)
 
     def _begin_battle(self, room: Room, attacker: Piece, defender: Piece) -> None:
         result = compare_types(attacker.type, defender.type)
@@ -326,7 +330,6 @@ class RoomManager:
             chooser=attacker.owner,
             round=1,
         )
-        room.selected_piece_id = None
         room.message = f"Ничья. Игрок {attacker.owner} тайно выбирает новый тип."
 
     def _resolve_battle_choice(self, room: Room, player_id: int, choice: str) -> None:
@@ -374,13 +377,11 @@ class RoomManager:
             room.phase = "game_over"
             room.winner = winner
             room.message = f"Игрок {winner} победил и захватил поле."
-            room.selected_piece_id = None
             return
         self._end_turn(room, room.last_battle_summary or f"Игрок {room.current_player} завершил действие.")
 
     def _end_turn(self, room: Room, message: str) -> None:
         room.current_player = 2 if room.current_player == 1 else 1
-        room.selected_piece_id = None
         room.phase = "turn"
         room.turn_count += 1
         room.message = f"{message} Теперь ход игрока {room.current_player}."
@@ -395,8 +396,9 @@ class CreateRoomRequest(BaseModel):
 
 class RoomActionRequest(BaseModel):
     type: str
-    col: Optional[int] = None
-    row: Optional[int] = None
+    pieceId: Optional[str] = None
+    targetCol: Optional[int] = None
+    targetRow: Optional[int] = None
     choice: Optional[str] = None
 
 

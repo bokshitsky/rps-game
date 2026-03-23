@@ -17,6 +17,7 @@ import type { KnownType, PieceType, PlayerId, RoomSnapshot, ViewMode } from "./t
 
 export interface BoardSceneDeps {
   getSnapshot: () => RoomSnapshot | null;
+  getSelectedPieceId: () => string | null;
   getViewMode: () => ViewMode;
   getStatusMessage: () => string;
   getShareUrl: () => string;
@@ -39,8 +40,9 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
         if (pointer.x >= boardWidth || pointer.y >= boardHeight) {
           return;
         }
-        const col = Phaser.Math.Clamp(Math.floor(pointer.x / cellSize), 0, boardCols - 1);
-        const row = Phaser.Math.Clamp(Math.floor(pointer.y / cellSize), 0, boardRows - 1);
+        const displayCol = Phaser.Math.Clamp(Math.floor(pointer.x / cellSize), 0, boardCols - 1);
+        const displayRow = Phaser.Math.Clamp(Math.floor(pointer.y / cellSize), 0, boardRows - 1);
+        const { col, row } = this.toLogicalCoords(displayCol, displayRow);
         deps.onBoardClick(col, row);
       });
       this.renderState();
@@ -78,12 +80,13 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
       }
 
       const snapshot = deps.getSnapshot();
-      const selectedPieceId = snapshot?.selectedPieceId;
+      const selectedPieceId = deps.getSelectedPieceId();
       if (selectedPieceId) {
         const selected = snapshot?.visiblePieces.find((piece) => piece.id === selectedPieceId);
         if (selected) {
+          const display = this.toDisplayCoords(selected.col, selected.row);
           board.lineStyle(4, 0xf8fafc, 1);
-          board.strokeRect(selected.col * cellSize + 4, selected.row * cellSize + 4, cellSize - 8, cellSize - 8);
+          board.strokeRect(display.col * cellSize + 4, display.row * cellSize + 4, cellSize - 8, cellSize - 8);
         }
       }
     }
@@ -91,8 +94,9 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
     private drawPieces(): void {
       const snapshot = deps.getSnapshot();
       for (const piece of snapshot?.visiblePieces ?? []) {
-        const centerX = piece.col * cellSize + cellSize / 2;
-        const centerY = piece.row * cellSize + cellSize / 2;
+        const display = this.toDisplayCoords(piece.col, piece.row);
+        const centerX = display.col * cellSize + cellSize / 2;
+        const centerY = display.row * cellSize + cellSize / 2;
         const textureKey = this.getPieceTextureKey(piece.owner, piece.knownType);
 
         this.keep(
@@ -102,6 +106,24 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
             .setScale(3.25),
         );
       }
+    }
+
+    private shouldMirrorBoard(): boolean {
+      return deps.getSnapshot()?.yourPlayerId === 2;
+    }
+
+    private toDisplayCoords(col: number, row: number): { col: number; row: number } {
+      if (!this.shouldMirrorBoard()) {
+        return { col, row };
+      }
+      return {
+        col: boardCols - 1 - col,
+        row: boardRows - 1 - row,
+      };
+    }
+
+    private toLogicalCoords(col: number, row: number): { col: number; row: number } {
+      return this.toDisplayCoords(col, row);
     }
 
     private drawSidePanel(): void {

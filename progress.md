@@ -34,3 +34,5 @@ Notes:
 - Split src/main.ts into smaller modules: constants, types, utils, UI shell, and Phaser board scene.
 
 - Switched multiplayer transport to HTTP for actions and state fetches, with WebSocket used only as a refresh signal.
+
+- Moved board perspective handling to the frontend renderer so player 2 now sees the board rotated like a chess opponent view; clicks are translated back into logical server coordinates.

@@ -22,6 +22,8 @@ let shareUrl = currentRoomId ? buildShareUrl(currentRoomId) : "";
 let socket: WebSocket | null = null;
 let isCreatingRoom = false;
 let isFetchingSnapshot = false;
+let localSelectedPieceId: string | null = null;
+let localStatusMessage = "";
 
 function getRoomIdFromUrl(): string | null {
   return new URL(window.location.href).searchParams.get("room");
@@ -90,7 +92,54 @@ function roomStatusText(): string {
   return `${role} ${lobbyState}`;
 }
 
+function canUseLocalTurnInteractions(): boolean {
+  return Boolean(roomSnapshot && roomSnapshot.canAct && roomSnapshot.phase === "turn");
+}
+
+function clearLocalSelection(): void {
+  localSelectedPieceId = null;
+}
+
+function setLocalStatusMessage(message: string): void {
+  localStatusMessage = message;
+}
+
+function clearLocalStatusMessage(): void {
+  localStatusMessage = "";
+}
+
+function visiblePieceAt(col: number, row: number) {
+  return roomSnapshot?.visiblePieces.find((piece) => piece.col === col && piece.row === row) ?? null;
+}
+
+function visiblePieceById(pieceId: string | null) {
+  if (!pieceId) {
+    return null;
+  }
+  return roomSnapshot?.visiblePieces.find((piece) => piece.id === pieceId) ?? null;
+}
+
+function isAdjacent(fromCol: number, fromRow: number, toCol: number, toRow: number): boolean {
+  return Math.abs(fromCol - toCol) + Math.abs(fromRow - toRow) === 1;
+}
+
+function syncLocalSelectionWithSnapshot(): void {
+  if (!canUseLocalTurnInteractions()) {
+    clearLocalSelection();
+    clearLocalStatusMessage();
+    return;
+  }
+
+  const selectedPiece = visiblePieceById(localSelectedPieceId);
+  if (!selectedPiece || selectedPiece.owner !== roomSnapshot?.yourPlayerId) {
+    clearLocalSelection();
+  }
+}
+
 function statusMessage(): string {
+  if (localStatusMessage && roomSnapshot?.phase === "turn") {
+    return localStatusMessage;
+  }
   if (roomSnapshot) {
     return roomSnapshot.message;
   }
@@ -190,6 +239,7 @@ async function fetchSnapshot(roomId: string): Promise<void> {
 
     const snapshot = (await response.json()) as RoomSnapshot;
     roomSnapshot = snapshot;
+    syncLocalSelectionWithSnapshot();
     savePlayerToken(snapshot.roomId, snapshot.playerToken);
     shareUrl = buildShareUrl(snapshot.roomId);
     if (connectionState !== "error") {
@@ -301,16 +351,75 @@ async function postAction(payload: Record<string, unknown>): Promise<void> {
 }
 
 function handleBoardClick(col: number, row: number): void {
-  if (!roomSnapshot || !roomSnapshot.canAct || roomSnapshot.phase !== "turn") {
+  if (!roomSnapshot || !canUseLocalTurnInteractions()) {
     return;
   }
-  void postAction({ type: "cell_click", col, row });
+
+  const clickedPiece = visiblePieceAt(col, row);
+  const yourPlayerId = roomSnapshot.yourPlayerId;
+
+  if (clickedPiece?.owner === yourPlayerId) {
+    localSelectedPieceId = clickedPiece.id;
+    setLocalStatusMessage("Фигура выбрана. Выберите соседнюю клетку для хода или атаки.");
+    syncUi();
+    requestRender();
+    return;
+  }
+
+  const selectedPiece = visiblePieceById(localSelectedPieceId);
+  if (!selectedPiece || selectedPiece.owner !== yourPlayerId) {
+    setLocalStatusMessage("Сначала выберите свою фигуру.");
+    syncUi();
+    requestRender();
+    return;
+  }
+
+  if (!isAdjacent(selectedPiece.col, selectedPiece.row, col, row)) {
+    setLocalStatusMessage("Ходить можно только на 1 клетку по вертикали или горизонтали.");
+    syncUi();
+    requestRender();
+    return;
+  }
+
+  if (!clickedPiece) {
+    clearLocalSelection();
+    clearLocalStatusMessage();
+    syncUi();
+    requestRender();
+    void postAction({
+      type: "move_piece",
+      pieceId: selectedPiece.id,
+      targetCol: col,
+      targetRow: row,
+    });
+    return;
+  }
+
+  if (clickedPiece.owner === yourPlayerId) {
+    setLocalStatusMessage("Нельзя ходить на клетку со своей фигурой.");
+    syncUi();
+    requestRender();
+    return;
+  }
+
+  clearLocalSelection();
+  clearLocalStatusMessage();
+  syncUi();
+  requestRender();
+  void postAction({
+    type: "attempt_capture",
+    pieceId: selectedPiece.id,
+    targetCol: col,
+    targetRow: row,
+  });
 }
 
 function resolveBattleChoice(choice: PieceType): void {
   if (!roomSnapshot || !roomSnapshot.canAct || roomSnapshot.phase !== "battle_pick") {
     return;
   }
+  clearLocalSelection();
+  clearLocalStatusMessage();
   void postAction({ type: "battle_choice", choice });
 }
 
@@ -358,7 +467,7 @@ function renderGameToText(): string {
     },
     yourPlayerId: roomSnapshot.yourPlayerId,
     currentPlayer: roomSnapshot.currentPlayer,
-    selectedPieceId: roomSnapshot.selectedPieceId,
+    selectedPieceId: localSelectedPieceId,
     visiblePieces: roomSnapshot.visiblePieces,
     counts: roomSnapshot.counts,
     connectedPlayers: roomSnapshot.connectedPlayers,
@@ -393,6 +502,7 @@ async function toggleFullscreen(): Promise<void> {
 
 const BoardScene = createBoardScene({
   getSnapshot: () => roomSnapshot,
+  getSelectedPieceId: () => localSelectedPieceId,
   getViewMode: currentViewMode,
   getStatusMessage: statusMessage,
   getShareUrl: () => shareUrl,
