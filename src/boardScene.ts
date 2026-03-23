@@ -13,7 +13,7 @@ import {
   canvasHeight,
 } from "./constants";
 import { mixColor, wrapLines } from "./utils";
-import type { KnownType, PieceType, PlayerId, RoomSnapshot, ViewMode } from "./types";
+import type { KnownType, PlayerId, RoomSnapshot, ViewMode } from "./types";
 
 export interface BoardSceneDeps {
   getSnapshot: () => RoomSnapshot | null;
@@ -159,8 +159,6 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
         }),
       );
 
-      this.drawPlayerSummary(1, snapshot, 230);
-      this.drawPlayerSummary(2, snapshot, 410);
     }
 
     private sidePanelTitle(snapshot: RoomSnapshot | null): string {
@@ -192,44 +190,6 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
       return snapshot.canAct ? "Ваш ход" : "Ход соперника";
     }
 
-    private drawPlayerSummary(player: PlayerId, snapshot: RoomSnapshot | null, y: number): void {
-      const ownInfoVisible = snapshot?.yourPlayerId === player || deps.getViewMode() === "home";
-      const summaryText = ownInfoVisible
-        ? (() => {
-            const known = this.countKnownTypes(snapshot, player);
-            return `Камень: ${known.rock}\nБумага: ${known.paper}\nНожницы: ${known.scissors}`;
-          })()
-        : "Типы скрыты от соперника.";
-
-      this.keep(
-        this.add.text(boardWidth + 22, y, `Игрок ${player}`, {
-          fontFamily: "Trebuchet MS, sans-serif",
-          fontSize: "22px",
-          color: player === 1 ? "#fb923c" : "#70a2ff",
-          fontStyle: "bold",
-        }),
-      );
-      this.keep(
-        this.add.text(boardWidth + 22, y + 40, summaryText, {
-          fontFamily: "Trebuchet MS, sans-serif",
-          fontSize: "18px",
-          color: "#f8fafc",
-          lineSpacing: 6,
-        }),
-      );
-    }
-
-    private countKnownTypes(snapshot: RoomSnapshot | null, owner: PlayerId): Record<PieceType, number> {
-      return (snapshot?.visiblePieces ?? [])
-        .filter((piece) => piece.owner === owner && piece.knownType !== "hidden")
-        .reduce<Record<PieceType, number>>(
-          (acc, piece) => {
-            acc[piece.knownType as PieceType] += 1;
-            return acc;
-          },
-          { rock: 0, paper: 0, scissors: 0 },
-        );
-    }
 
     private drawOverlay(): void {
       const mode = deps.getViewMode();
@@ -366,18 +326,23 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
           px(20, 22, 7, 1, outline);
           px(22, 14, 3, 6, "#d7dbe2");
         } else if (type === "scissors") {
-          px(17, 11, 4, 4, "#ffc234");
-          px(23, 11, 4, 4, "#ffc234");
-          px(18, 12, 2, 2, outline);
-          px(24, 12, 2, 2, outline);
-          px(20, 15, 2, 2, "#c2c8d0");
-          px(22, 15, 2, 2, "#c2c8d0");
-          px(20, 16, 2, 9, "#c2c8d0");
-          px(22, 16, 2, 9, "#c2c8d0");
-          px(19, 15, 1, 10, outline);
-          px(24, 15, 1, 10, outline);
-          px(19, 18, 3, 1, outline);
-          px(22, 18, 3, 1, outline);
+          px(17, 12, 4, 4, "#ffc234");
+          px(23, 12, 4, 4, "#ffc234");
+          px(18, 13, 2, 2, outline);
+          px(24, 13, 2, 2, outline);
+          px(20, 16, 2, 2, "#c2c8d0");
+          px(22, 16, 2, 2, "#c2c8d0");
+          px(21, 18, 2, 2, "#c2c8d0");
+          px(19, 20, 2, 2, "#c2c8d0");
+          px(23, 20, 2, 2, "#c2c8d0");
+          px(18, 22, 2, 2, "#c2c8d0");
+          px(24, 22, 2, 2, "#c2c8d0");
+          px(20, 17, 1, 7, outline);
+          px(24, 17, 1, 7, outline);
+          px(20, 18, 3, 1, outline);
+          px(21, 20, 3, 1, outline);
+          px(19, 22, 3, 1, outline);
+          px(23, 22, 3, 1, outline);
         }
       }
 

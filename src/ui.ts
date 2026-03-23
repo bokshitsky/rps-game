@@ -1,4 +1,4 @@
-import { canvasWidth } from "./constants";
+import { boardWidth, canvasWidth } from "./constants";
 
 export interface AppShellRefs {
   root: HTMLDivElement;
@@ -118,7 +118,7 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     }
     .choice-row {
       position: absolute;
-      left: 50%;
+      left: ${boardWidth / 2}px;
       top: 50%;
       transform: translate(-50%, -50%);
       display: flex;
@@ -150,7 +150,7 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     }
     .setup-panel {
       position: absolute;
-      left: 50%;
+      left: ${boardWidth / 2}px;
       top: 50%;
       transform: translate(-50%, -50%);
       display: grid;
