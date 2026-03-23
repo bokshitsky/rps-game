@@ -80,6 +80,17 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
       }
 
       const snapshot = deps.getSnapshot();
+      const selectablePieces =
+        snapshot?.phase === "turn" && snapshot.canAct
+          ? snapshot.visiblePieces.filter((piece) => piece.owner === snapshot.yourPlayerId)
+          : [];
+
+      for (const piece of selectablePieces) {
+        const display = this.toDisplayCoords(piece.col, piece.row);
+        board.lineStyle(3, 0xfff7d6, 0.95);
+        board.strokeRect(display.col * cellSize + 8, display.row * cellSize + 8, cellSize - 16, cellSize - 16);
+      }
+
       const selectedPieceId = deps.getSelectedPieceId();
       if (selectedPieceId) {
         const selected = snapshot?.visiblePieces.find((piece) => piece.id === selectedPieceId);
@@ -148,29 +159,12 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
         }),
       );
 
-      if (snapshot) {
-        this.keep(
-          this.add.text(boardWidth + 22, 150, `Комната: ${snapshot.roomId}`, {
-            fontFamily: "Trebuchet MS, sans-serif",
-            fontSize: "16px",
-            color: "#cbd5e1",
-          }),
-        );
-        this.keep(
-          this.add.text(boardWidth + 22, 178, `Пресет: ${snapshot.parameters.preset}`, {
-            fontFamily: "Trebuchet MS, sans-serif",
-            fontSize: "16px",
-            color: "#cbd5e1",
-          }),
-        );
-      }
-
       this.drawPlayerSummary(1, snapshot, 230);
-      this.drawPlayerSummary(2, snapshot, 430);
+      this.drawPlayerSummary(2, snapshot, 410);
 
       if (snapshot?.lastBattleSummary) {
         this.keep(
-          this.add.text(boardWidth + 22, 650, "Последний бой", {
+          this.add.text(boardWidth + 22, 590, "Последний бой", {
             fontFamily: "Trebuchet MS, sans-serif",
             fontSize: "18px",
             color: "#fde68a",
@@ -178,7 +172,7 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
           }),
         );
         this.keep(
-          this.add.text(boardWidth + 22, 682, wrapLines(snapshot.lastBattleSummary, 30).join("\n"), {
+          this.add.text(boardWidth + 22, 622, wrapLines(snapshot.lastBattleSummary, 30).join("\n"), {
             fontFamily: "Trebuchet MS, sans-serif",
             fontSize: "18px",
             color: "#f8fafc",
@@ -218,7 +212,6 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
     }
 
     private drawPlayerSummary(player: PlayerId, snapshot: RoomSnapshot | null, y: number): void {
-      const counts = snapshot?.counts ?? { player1: 0, player2: 0 };
       const ownInfoVisible = snapshot?.yourPlayerId === player || deps.getViewMode() === "home";
       const summaryText = ownInfoVisible
         ? (() => {
@@ -236,19 +229,7 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
         }),
       );
       this.keep(
-        this.add.text(
-          boardWidth + 22,
-          y + 34,
-          `Фигур осталось: ${player === 1 ? counts.player1 : counts.player2}`,
-          {
-            fontFamily: "Trebuchet MS, sans-serif",
-            fontSize: "18px",
-            color: "#f8fafc",
-          },
-        ),
-      );
-      this.keep(
-        this.add.text(boardWidth + 22, y + 70, summaryText, {
+        this.add.text(boardWidth + 22, y + 40, summaryText, {
           fontFamily: "Trebuchet MS, sans-serif",
           fontSize: "18px",
           color: "#f8fafc",
