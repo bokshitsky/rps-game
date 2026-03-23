@@ -30,3 +30,5 @@ Notes:
 - Fixed hidden modal CSS so it no longer intercepts clicks in the multiplayer lobby flow.
 
 - Verified multiplayer room flow end to end with separate browser contexts: host creates link, guest joins, both receive active match state.
+
+- Split src/main.ts into smaller modules: constants, types, utils, UI shell, and Phaser board scene.
