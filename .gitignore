@@ -1,0 +1,18 @@
+# Node / frontend
+node_modules/
+dist/
+npm-debug.log*
+
+# Python / Poetry
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Editor / OS
+.idea/
+.DS_Store
+
+# Local artifacts
+output/

@@ -1,0 +1,20 @@
+{
+  "name": "kmbgame",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "poetry run uvicorn server.app:app --host 0.0.0.0 --port 8000",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.2",
+    "typescript": "^5.9.2",
+    "vite": "^6.4.1"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  }
+}
