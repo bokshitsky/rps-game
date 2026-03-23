@@ -21,6 +21,7 @@ let currentRoomId = getRoomIdFromUrl();
 let shareUrl = currentRoomId ? buildShareUrl(currentRoomId) : "";
 let socket: WebSocket | null = null;
 let isCreatingRoom = false;
+let isFetchingSnapshot = false;
 
 function getRoomIdFromUrl(): string | null {
   return new URL(window.location.href).searchParams.get("room");
@@ -139,7 +140,7 @@ async function createRoom(): Promise<void> {
     showConfigModal(false);
     syncUi();
     requestRender();
-    connectToRoom(payload.roomId);
+    await bootstrapRoom(payload.roomId);
   } catch (error) {
     connectionState = "error";
     connectionError = "Не удалось создать комнату.";
@@ -162,6 +163,67 @@ function wsUrlForRoom(roomId: string): string {
   return url.toString();
 }
 
+function httpUrlForRoom(roomId: string): string {
+  return `/api/games/${roomId}`;
+}
+
+function actionUrlForRoom(roomId: string): string {
+  return `/api/games/${roomId}/actions`;
+}
+
+function tokenQuery(roomId: string): string {
+  const token = loadPlayerToken(roomId);
+  return token ? `?token=${encodeURIComponent(token)}` : "";
+}
+
+async function fetchSnapshot(roomId: string): Promise<void> {
+  if (isFetchingSnapshot) {
+    return;
+  }
+
+  isFetchingSnapshot = true;
+  try {
+    const response = await fetch(`${httpUrlForRoom(roomId)}${tokenQuery(roomId)}`);
+    if (!response.ok) {
+      throw new Error(`snapshot failed: ${response.status}`);
+    }
+
+    const snapshot = (await response.json()) as RoomSnapshot;
+    roomSnapshot = snapshot;
+    savePlayerToken(snapshot.roomId, snapshot.playerToken);
+    shareUrl = buildShareUrl(snapshot.roomId);
+    if (connectionState !== "error") {
+      connectionState = socket ? "connected" : "idle";
+    }
+    syncUi();
+    requestRender();
+  } catch (error) {
+    connectionState = "error";
+    connectionError = "Не удалось получить состояние комнаты.";
+    syncUi();
+    requestRender();
+    console.error(error);
+  } finally {
+    isFetchingSnapshot = false;
+  }
+}
+
+async function bootstrapRoom(roomId: string): Promise<void> {
+  connectionState = "connecting";
+  connectionError = "";
+  syncUi();
+  requestRender();
+
+  if (!loadPlayerToken(roomId)) {
+    await fetchSnapshot(roomId);
+    if (!loadPlayerToken(roomId)) {
+      return;
+    }
+  }
+
+  connectToRoom(roomId);
+}
+
 function connectToRoom(roomId: string): void {
   if (socket) {
     socket.close();
@@ -180,6 +242,7 @@ function connectToRoom(roomId: string): void {
       return;
     }
     connectionState = "connected";
+    void fetchSnapshot(roomId);
     syncUi();
     requestRender();
   });
@@ -189,9 +252,7 @@ function connectToRoom(roomId: string): void {
       return;
     }
 
-    const data = JSON.parse(event.data) as
-      | { type: "snapshot"; payload: RoomSnapshot }
-      | { type: "error"; message: string };
+    const data = JSON.parse(event.data) as { type: "refresh" } | { type: "error"; message: string };
 
     if (data.type === "error") {
       connectionState = "error";
@@ -201,11 +262,7 @@ function connectToRoom(roomId: string): void {
       return;
     }
 
-    roomSnapshot = data.payload;
-    savePlayerToken(data.payload.roomId, data.payload.playerToken);
-    shareUrl = buildShareUrl(data.payload.roomId);
-    syncUi();
-    requestRender();
+    void fetchSnapshot(roomId);
   });
 
   nextSocket.addEventListener("close", () => {
@@ -225,25 +282,36 @@ function connectToRoom(roomId: string): void {
   });
 }
 
-function sendAction(payload: Record<string, unknown>): void {
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
+async function postAction(payload: Record<string, unknown>): Promise<void> {
+  if (!currentRoomId) {
     return;
   }
-  socket.send(JSON.stringify(payload));
+
+  const response = await fetch(`${actionUrlForRoom(currentRoomId)}${tokenQuery(currentRoomId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`action failed: ${response.status}`);
+  }
+
+  await fetchSnapshot(currentRoomId);
 }
 
 function handleBoardClick(col: number, row: number): void {
   if (!roomSnapshot || !roomSnapshot.canAct || roomSnapshot.phase !== "turn") {
     return;
   }
-  sendAction({ type: "cell_click", col, row });
+  void postAction({ type: "cell_click", col, row });
 }
 
 function resolveBattleChoice(choice: PieceType): void {
   if (!roomSnapshot || !roomSnapshot.canAct || roomSnapshot.phase !== "battle_pick") {
     return;
   }
-  sendAction({ type: "battle_choice", choice });
+  void postAction({ type: "battle_choice", choice });
 }
 
 function syncUi(): void {
@@ -386,5 +454,5 @@ syncUi();
 requestRender();
 
 if (currentRoomId) {
-  connectToRoom(currentRoomId);
+  void bootstrapRoom(currentRoomId);
 }

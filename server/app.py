@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import secrets
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -225,15 +225,18 @@ class RoomManager:
             elif action_type == "battle_choice":
                 self._resolve_battle_choice(room, player_id, str(payload["choice"]))
 
-    async def broadcast(self, room: Room) -> None:
+    async def notify_refresh(self, room: Room) -> None:
         stale_players: list[int] = []
         for player_id, socket in list(room.sockets.items()):
             try:
-                await socket.send_text(json.dumps({"type": "snapshot", "payload": room.snapshot_for(player_id)}))
+                await socket.send_text(json.dumps({"type": "refresh"}))
             except Exception:
                 stale_players.append(player_id)
         for player_id in stale_players:
             self.disconnect(room, player_id)
+
+    def resolve_player(self, room: Room, token: Optional[str]) -> int:
+        return self._resolve_player(room, token)
 
     def _resolve_player(self, room: Room, token: Optional[str]) -> int:
         if token:
@@ -390,6 +393,13 @@ class CreateRoomRequest(BaseModel):
     preset: str = "standard"
 
 
+class RoomActionRequest(BaseModel):
+    type: str
+    col: Optional[int] = None
+    row: Optional[int] = None
+    choice: Optional[str] = None
+
+
 app = FastAPI(title="Hidden RPS Multiplayer")
 app.add_middleware(
     CORSMiddleware,
@@ -411,17 +421,35 @@ async def create_game(payload: CreateRoomRequest) -> dict[str, Any]:
     }
 
 
+@app.get("/api/games/{room_id}")
+async def get_game_state(room_id: str, token: Optional[str] = Query(default=None)) -> dict[str, Any]:
+    room = manager.get_room(room_id)
+    player_id = manager.resolve_player(room, token)
+    return room.snapshot_for(player_id)
+
+
+@app.post("/api/games/{room_id}/actions")
+async def post_game_action(
+    room_id: str,
+    payload: RoomActionRequest,
+    token: Optional[str] = Query(default=None),
+) -> dict[str, Any]:
+    room = manager.get_room(room_id)
+    player_id = manager.resolve_player(room, token)
+    await manager.handle_action(room, player_id, payload.model_dump())
+    await manager.notify_refresh(room)
+    return {"ok": True}
+
+
 @app.websocket("/ws/games/{room_id}")
 async def room_socket(websocket: WebSocket, room_id: str, token: Optional[str] = None) -> None:
     room: Optional[Room] = None
     player_id: Optional[int] = None
     try:
         room, player_id = await manager.connect(room_id, websocket, token)
-        await manager.broadcast(room)
+        await manager.notify_refresh(room)
         while True:
-            payload = await websocket.receive_json()
-            await manager.handle_action(room, player_id, payload)
-            await manager.broadcast(room)
+            await websocket.receive_text()
     except HTTPException as exc:
         await websocket.accept()
         await websocket.send_text(json.dumps({"type": "error", "message": exc.detail}))
@@ -429,7 +457,7 @@ async def room_socket(websocket: WebSocket, room_id: str, token: Optional[str] =
     except WebSocketDisconnect:
         if room is not None and player_id is not None:
             manager.disconnect(room, player_id)
-            await manager.broadcast(room)
+            await manager.notify_refresh(room)
 
 
 DIST_DIR = Path(__file__).resolve().parent.parent / "dist"

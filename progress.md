@@ -32,3 +32,5 @@ Notes:
 - Verified multiplayer room flow end to end with separate browser contexts: host creates link, guest joins, both receive active match state.
 
 - Split src/main.ts into smaller modules: constants, types, utils, UI shell, and Phaser board scene.
+
+- Switched multiplayer transport to HTTP for actions and state fetches, with WebSocket used only as a refresh signal.
