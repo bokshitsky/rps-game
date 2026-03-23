@@ -528,16 +528,45 @@ function advanceTime(): void {
   requestRender();
 }
 
+function legacyCopyText(text: string): boolean {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
 async function copyInviteLink(): Promise<void> {
   if (!shareUrl) {
     return;
   }
 
   try {
-    await navigator.clipboard.writeText(shareUrl);
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareUrl);
+    } else if (!legacyCopyText(shareUrl)) {
+      throw new Error("clipboard unavailable");
+    }
     ui.footerConnectionLine.textContent = "Ссылка скопирована. Отправьте ее второму игроку.";
   } catch {
-    ui.footerConnectionLine.textContent = shareUrl;
+    if (legacyCopyText(shareUrl)) {
+      ui.footerConnectionLine.textContent = "Ссылка скопирована. Отправьте ее второму игроку.";
+      return;
+    }
+    ui.footerConnectionLine.textContent = `Ссылка: ${shareUrl}`;
   }
 }
 
