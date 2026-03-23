@@ -13,8 +13,9 @@ export interface VisiblePiece {
 }
 
 export interface BattleState {
-  chooser: PlayerId;
   round: number;
+  yourLocked: boolean;
+  opponentLocked: boolean;
 }
 
 export interface SetupState {

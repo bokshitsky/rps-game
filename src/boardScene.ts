@@ -187,7 +187,7 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
         return `Победа: игрок ${snapshot.winner}`;
       }
       if (snapshot.phase === "battle_pick" && snapshot.battle) {
-        return `Выбор: игрок ${snapshot.battle.chooser}`;
+        return snapshot.battle.yourLocked ? "Ждем выбор соперника" : "Выберите знак";
       }
       return snapshot.canAct ? "Ваш ход" : "Ход соперника";
     }
@@ -366,14 +366,18 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
           px(20, 22, 7, 1, outline);
           px(22, 14, 3, 6, "#d7dbe2");
         } else if (type === "scissors") {
-          px(19, 14, 2, 10, "#c2c8d0");
-          px(23, 14, 2, 10, "#c2c8d0");
-          px(20, 14, 1, 10, outline);
-          px(23, 14, 1, 10, outline);
-          px(18, 12, 4, 3, "#ffc234");
-          px(22, 12, 4, 3, "#ffc234");
-          px(19, 12, 2, 2, outline);
-          px(23, 12, 2, 2, outline);
+          px(17, 11, 4, 4, "#ffc234");
+          px(23, 11, 4, 4, "#ffc234");
+          px(18, 12, 2, 2, outline);
+          px(24, 12, 2, 2, outline);
+          px(20, 15, 2, 2, "#c2c8d0");
+          px(22, 15, 2, 2, "#c2c8d0");
+          px(20, 16, 2, 9, "#c2c8d0");
+          px(22, 16, 2, 9, "#c2c8d0");
+          px(19, 15, 1, 10, outline);
+          px(24, 15, 1, 10, outline);
+          px(19, 18, 3, 1, outline);
+          px(22, 18, 3, 1, outline);
         }
       }
 

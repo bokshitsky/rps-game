@@ -117,10 +117,36 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
       display: block;
     }
     .choice-row {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
       display: flex;
-      gap: 10px;
+      gap: 12px;
       flex-wrap: wrap;
-      margin-top: 10px;
+      justify-content: center;
+      padding: 16px 18px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(19,33,47,0.12);
+      box-shadow: 0 18px 46px rgba(19,33,47,0.18);
+      backdrop-filter: blur(10px);
+      z-index: 2;
+    }
+    .choice-row button {
+      width: 76px;
+      height: 76px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      background: #fffdf9;
+      border: 1px solid rgba(19,33,47,0.12);
+      box-shadow: 0 10px 24px rgba(19,33,47,0.12);
+    }
+    .choice-row button img {
+      width: 48px;
+      height: 48px;
+      display: block;
     }
     .setup-panel {
       position: absolute;
@@ -223,6 +249,7 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
       </div>
       <div class="board-wrap">
         <div id="game-host"></div>
+        <div id="choice-panel" class="choice-row hidden"></div>
         <div id="setup-panel" class="setup-panel hidden">
           <div class="setup-actions">
             <button id="ready-setup-btn">Готов</button>
@@ -231,7 +258,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
           <div id="setup-status" class="setup-status"></div>
         </div>
       </div>
-      <div id="choice-panel" class="choice-row hidden"></div>
       <div class="footer">
         <span id="status-line"></span>
         <span id="connection-line"></span>

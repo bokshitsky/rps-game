@@ -233,15 +233,16 @@ class RoomManager:
         room.battle = BattleState(
             attacker_id=attacker.id,
             defender_id=defender.id,
-            chooser=attacker.owner,
+            attacker_owner=attacker.owner,
+            defender_owner=defender.owner,
             round=1,
         )
-        room.message = f"Ничья. Игрок {attacker.owner} тайно выбирает новый тип."
+        room.message = "Ничья. Оба игрока одновременно выбирают новый тип."
 
     def _resolve_battle_choice(self, room: Room, player_id: int, choice: str) -> None:
         if room.connected_players() < 2 or room.phase != "battle_pick" or not room.battle:
             return
-        if player_id != room.battle.chooser or choice not in PIECE_TYPES:
+        if player_id not in {room.battle.attacker_owner, room.battle.defender_owner} or choice not in PIECE_TYPES:
             return
 
         attacker = room.get_piece_by_id(room.battle.attacker_id)
@@ -252,18 +253,18 @@ class RoomManager:
             room.message = "Бой сброшен из-за несогласованного состояния."
             return
 
-        if room.battle.chooser == attacker.owner:
-            attacker.type = choice
-            room.battle.chooser = defender.owner
-            room.message = f"Игрок {defender.owner} тайно выбирает новый тип."
+        room.battle.locked_choices[player_id] = choice
+        if len(room.battle.locked_choices) < 2:
+            room.message = "Ожидаем тайный выбор соперника."
             return
 
-        defender.type = choice
+        attacker.type = room.battle.locked_choices[attacker.owner]
+        defender.type = room.battle.locked_choices[defender.owner]
         result = compare_types(attacker.type, defender.type)
         if result == "tie":
             room.battle.round += 1
-            room.battle.chooser = attacker.owner
-            room.message = f"Снова ничья. Раунд {room.battle.round}: игрок {attacker.owner} выбирает тип."
+            room.battle.locked_choices.clear()
+            room.message = f"Снова ничья. Раунд {room.battle.round}: оба игрока выбирают новый тип."
             return
 
         room.battle = None

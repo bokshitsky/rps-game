@@ -21,8 +21,10 @@ class Piece:
 class BattleState:
     attacker_id: str
     defender_id: str
-    chooser: int
+    attacker_owner: int
+    defender_owner: int
     round: int
+    locked_choices: dict[int, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -72,7 +74,7 @@ class Room:
         if self.phase == "setup":
             return True
         if self.phase == "battle_pick" and self.battle:
-            return self.battle.chooser == player_id
+            return player_id in {self.battle.attacker_owner, self.battle.defender_owner} and player_id not in self.battle.locked_choices
         return False
 
     def snapshot_for(self, player_id: int) -> dict[str, Any]:
@@ -102,8 +104,9 @@ class Room:
             "battle": None
             if not self.battle
             else {
-                "chooser": self.battle.chooser,
                 "round": self.battle.round,
+                "yourLocked": player_id in self.battle.locked_choices,
+                "opponentLocked": (2 if player_id == 1 else 1) in self.battle.locked_choices,
             },
             "message": self.message,
             "lastBattleSummary": self.last_battle_summary,
