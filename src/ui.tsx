@@ -34,6 +34,7 @@ export interface AppShellState {
   overlayDescription: string | null;
   overlayPrimaryLabel: string | null;
   overlaySecondaryLabel: string | null;
+  passiveOverlayLabel: string | null;
   onStart: () => void;
   onRestart: () => void;
   onCopyLink: () => void;
@@ -72,6 +73,7 @@ const defaultState: AppShellState = {
   overlayDescription: null,
   overlayPrimaryLabel: "Новая игра",
   overlaySecondaryLabel: null,
+  passiveOverlayLabel: null,
   onStart: () => undefined,
   onRestart: () => undefined,
   onCopyLink: () => undefined,
@@ -163,6 +165,12 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
                     ) : null}
                   </div>
                 </div>
+              </div>
+            ) : null}
+
+            {state.passiveOverlayLabel ? (
+              <div className="passive-turn-overlay">
+                <div className="passive-turn-label">{state.passiveOverlayLabel}</div>
               </div>
             ) : null}
 

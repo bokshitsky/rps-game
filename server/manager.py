@@ -189,7 +189,7 @@ class RoomManager:
 
     def _start_match(self, room: Room) -> None:
         room.phase = "turn"
-        room.current_player = 1
+        room.current_player = random.choice((1, 2))
         room.turn_count = 1
         room.restart = None
         room.message = ""

@@ -408,6 +408,10 @@ function syncUi(): void {
   const snapshot = roomSnapshot;
   const showChoices = snapshot?.phase === "battle_pick" && snapshot.canAct;
   const showSetup = snapshot?.phase === "setup" && snapshot.connectedPlayers === snapshot.requiredPlayers;
+  const showPassiveOpponentTurnOverlay =
+    snapshot?.phase === "turn" &&
+    snapshot.connectedPlayers === snapshot.requiredPlayers &&
+    !snapshot.canAct;
   const isWaitingForOpponent = snapshot?.phase === "waiting";
   const isGameOver = snapshot?.phase === "game_over";
   const isRestartRequestedByYou = Boolean(snapshot?.restart?.requestedByYou);
@@ -497,6 +501,7 @@ function syncUi(): void {
     overlayDescription,
     overlayPrimaryLabel,
     overlaySecondaryLabel,
+    passiveOverlayLabel: showPassiveOpponentTurnOverlay ? "Ход соперника" : null,
     onStart: () => showConfigModal(true),
     onRestart: () => requestRestart(),
     onCopyLink: () => {
