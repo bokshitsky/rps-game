@@ -15,6 +15,10 @@
     "vite": "^6.4.1"
   },
   "dependencies": {
-    "phaser": "^3.90.0"
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "phaser": "^3.90.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   }
 }

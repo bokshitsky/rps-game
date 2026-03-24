@@ -1,9 +1,9 @@
 import Phaser from "phaser";
 
 import { createBoardScene } from "./boardScene";
-import { canvasHeight, canvasWidth, pieceTypes } from "./constants";
+import { canvasHeight, canvasWidth } from "./constants";
 import type { PieceType, PlayerId, RoomSnapshot } from "./types";
-import { createAppShell } from "./ui";
+import { mountAppShell, type AppShellController, type AppShellState } from "./ui";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -11,7 +11,7 @@ if (!app) {
   throw new Error("App root not found");
 }
 
-const ui = createAppShell(app);
+const appRoot = app;
 
 let boardScene: { renderState: () => void } | null = null;
 let roomSnapshot: RoomSnapshot | null = null;
@@ -23,16 +23,10 @@ let pollingTimer: number | null = null;
 let isCreatingRoom = false;
 let isFetchingSnapshot = false;
 let localSelectedPieceId: string | null = null;
-
-function battleChoiceIcon(type: PieceType): string {
-  const svg =
-    type === "rock"
-      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="#9aa3af" d="M18 48 9 36l8-15 19-7 14 8 4 18-11 11z"/><path fill="#cbd5e1" d="m19 34 8-10 13-4 6 4-10 9z"/><path fill="none" stroke="#243140" stroke-width="4" stroke-linejoin="round" d="M18 48 9 36l8-15 19-7 14 8 4 18-11 11z"/></svg>`
-      : type === "paper"
-        ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="16" y="10" width="32" height="44" rx="3" fill="#fffdf7"/><path fill="#dbe4ef" d="M22 18h20v3H22zm0 9h20v3H22zm0 9h16v3H22z"/><rect x="16" y="10" width="32" height="44" rx="3" fill="none" stroke="#243140" stroke-width="4"/></svg>`
-        : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="20" cy="16" r="8" fill="#f7c948"/><circle cx="42" cy="16" r="8" fill="#f7c948"/><circle cx="20" cy="16" r="8" fill="none" stroke="#243140" stroke-width="4"/><circle cx="42" cy="16" r="8" fill="none" stroke="#243140" stroke-width="4"/><path d="M23 22 31 30" stroke="#243140" stroke-width="4" stroke-linecap="round"/><path d="M39 22 31 30" stroke="#243140" stroke-width="4" stroke-linecap="round"/><path d="M31 30 16 50" stroke="#bfc7d2" stroke-width="7" stroke-linecap="round"/><path d="M31 30 48 50" stroke="#bfc7d2" stroke-width="7" stroke-linecap="round"/><path d="M31 30 16 50" stroke="#243140" stroke-width="3" stroke-linecap="round"/><path d="M31 30 48 50" stroke="#243140" stroke-width="3" stroke-linecap="round"/></svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
+let copyLinkLabel = "Копировать ссылку";
+let isConfigModalOpen = false;
+let presetValue = "standard";
+let ui: AppShellController | null = null;
 
 function getRoomIdFromUrl(): string | null {
   return new URL(window.location.href).searchParams.get("room");
@@ -101,7 +95,8 @@ function syncLocalSelectionWithSnapshot(): void {
 }
 
 function showConfigModal(show: boolean): void {
-  ui.modalRoot.classList.toggle("hidden", !show);
+  isConfigModalOpen = show;
+  syncUi();
 }
 
 async function createRoom(): Promise<void> {
@@ -110,13 +105,13 @@ async function createRoom(): Promise<void> {
   }
 
   isCreatingRoom = true;
-  ui.confirmConfigBtn.disabled = true;
+  syncUi();
 
   try {
     const response = await fetch("/api/games", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ preset: ui.presetInput.value }),
+      body: JSON.stringify({ preset: presetValue }),
     });
 
     if (!response.ok) {
@@ -144,7 +139,7 @@ async function createRoom(): Promise<void> {
     console.error(error);
   } finally {
     isCreatingRoom = false;
-    ui.confirmConfigBtn.disabled = false;
+    syncUi();
   }
 }
 
@@ -391,35 +386,40 @@ function resolveBattleChoice(choice: PieceType): void {
 }
 
 function syncUi(): void {
-  ui.copyLinkBtn.disabled = !shareUrl;
+  if (!ui) {
+    return;
+  }
 
-  ui.battleChoicePanel.innerHTML = "";
   const showChoices = roomSnapshot?.phase === "battle_pick" && roomSnapshot.canAct;
-  ui.battleChoicePanel.classList.toggle("hidden", !showChoices);
-
-  if (showChoices) {
-    for (const type of pieceTypes) {
-      const button = document.createElement("button");
-      const icon = document.createElement("img");
-      icon.src = battleChoiceIcon(type);
-      icon.alt = type;
-      button.appendChild(icon);
-      button.title = type;
-      button.setAttribute("aria-label", type);
-      button.addEventListener("click", () => resolveBattleChoice(type));
-      ui.battleChoicePanel.appendChild(button);
-    }
-  }
-
   const showSetup = roomSnapshot?.phase === "setup" && roomSnapshot.connectedPlayers === roomSnapshot.requiredPlayers;
-  ui.setupPanel.classList.toggle("hidden", !showSetup);
+  const nextState: AppShellState = {
+    canCopyLink: Boolean(shareUrl),
+    copyLinkLabel,
+    showBattleChoices: showChoices,
+    showSetup,
+    readyDisabled: Boolean(showSetup && roomSnapshot?.setup.yourReady),
+    readyLabel: showSetup && roomSnapshot?.setup.yourReady ? "Готово" : "Готов",
+    rerollDisabled: false,
+    showModal: isConfigModalOpen,
+    presetValue,
+    onStart: () => showConfigModal(true),
+    onCopyLink: () => {
+      void copyInviteLink();
+    },
+    onBattleChoice: (type) => resolveBattleChoice(type),
+    onReroll: () => rerollSetup(),
+    onReady: () => readySetup(),
+    onPresetChange: (value) => {
+      presetValue = value;
+      syncUi();
+    },
+    onCancelModal: () => showConfigModal(false),
+    onConfirmModal: () => {
+      void createRoom();
+    },
+  };
 
-  if (showSetup && roomSnapshot) {
-    ui.readySetupBtn.disabled = roomSnapshot.setup.yourReady;
-    ui.readySetupBtn.textContent = roomSnapshot.setup.yourReady ? "Готово" : "Готов";
-    ui.rerollSetupBtn.disabled = false;
-    ui.setupStatusLine.textContent = "";
-  }
+  ui.update(nextState);
 }
 
 function requestRender(): void {
@@ -493,77 +493,71 @@ async function copyInviteLink(): Promise<void> {
     } else if (!legacyCopyText(shareUrl)) {
       throw new Error("clipboard unavailable");
     }
-    ui.copyLinkBtn.textContent = "Скопировано";
+    copyLinkLabel = "Скопировано";
   } catch {
     if (legacyCopyText(shareUrl)) {
-      ui.copyLinkBtn.textContent = "Скопировано";
+      copyLinkLabel = "Скопировано";
+      syncUi();
       return;
     }
-    ui.copyLinkBtn.textContent = "Ссылка не скопирована";
+    copyLinkLabel = "Ссылка не скопирована";
   } finally {
+    syncUi();
     window.setTimeout(() => {
-      ui.copyLinkBtn.textContent = defaultLabel;
+      copyLinkLabel = defaultLabel;
+      syncUi();
     }, 1600);
   }
 }
 
-const BoardScene = createBoardScene({
-  getSnapshot: () => roomSnapshot,
-  getSelectedPieceId: () => localSelectedPieceId,
-  onBoardClick: handleBoardClick,
-  onSceneReady: (scene) => {
-    boardScene = scene;
-  },
-});
+async function initialize(): Promise<void> {
+  ui = await mountAppShell(appRoot);
 
-new Phaser.Game({
-  type: Phaser.CANVAS,
-  width: canvasWidth,
-  height: canvasHeight,
-  parent: ui.gameHost,
-  backgroundColor: "#000000",
-  scene: [BoardScene],
-  render: {
-    antialias: true,
-    pixelArt: false,
-  },
-  scale: {
-    mode: Phaser.Scale.NONE,
+  const BoardScene = createBoardScene({
+    getSnapshot: () => roomSnapshot,
+    getSelectedPieceId: () => localSelectedPieceId,
+    onBoardClick: handleBoardClick,
+    onSceneReady: (scene) => {
+      boardScene = scene;
+    },
+  });
+
+  new Phaser.Game({
+    type: Phaser.CANVAS,
     width: canvasWidth,
     height: canvasHeight,
-  },
-});
+    parent: ui.gameHost,
+    backgroundColor: "#000000",
+    scene: [BoardScene],
+    render: {
+      antialias: true,
+      pixelArt: false,
+    },
+    scale: {
+      mode: Phaser.Scale.NONE,
+      width: canvasWidth,
+      height: canvasHeight,
+    },
+  });
 
-ui.startBtn.addEventListener("click", () => showConfigModal(true));
-ui.cancelConfigBtn.addEventListener("click", () => showConfigModal(false));
-ui.confirmConfigBtn.addEventListener("click", () => {
-  void createRoom();
-});
-ui.copyLinkBtn.addEventListener("click", () => {
-  void copyInviteLink();
-});
-ui.rerollSetupBtn.addEventListener("click", () => {
-  rerollSetup();
-});
-ui.readySetupBtn.addEventListener("click", () => {
-  readySetup();
-});
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      showConfigModal(false);
+    }
+  });
+  window.addEventListener("resize", requestRender);
 
-window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") {
-    showConfigModal(false);
+  window.render_game_to_text = renderGameToText;
+  window.advanceTime = (_ms: number) => {
+    advanceTime();
+  };
+
+  syncUi();
+  requestRender();
+
+  if (currentRoomId) {
+    await bootstrapRoom(currentRoomId);
   }
-});
-window.addEventListener("resize", requestRender);
-
-window.render_game_to_text = renderGameToText;
-window.advanceTime = (_ms: number) => {
-  advanceTime();
-};
-
-syncUi();
-requestRender();
-
-if (currentRoomId) {
-  void bootstrapRoom(currentRoomId);
 }
+
+void initialize();
