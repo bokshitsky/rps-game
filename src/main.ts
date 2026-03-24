@@ -2,7 +2,7 @@ import Phaser from "phaser";
 
 import { createBoardScene } from "./boardScene";
 import { canvasHeight, canvasWidth, pieceTypes } from "./constants";
-import type { PieceType, PlayerId, RoomSnapshot, ViewMode } from "./types";
+import type { PieceType, PlayerId, RoomSnapshot } from "./types";
 import { createAppShell } from "./ui";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -16,7 +16,6 @@ const ui = createAppShell(app);
 let boardScene: { renderState: () => void } | null = null;
 let roomSnapshot: RoomSnapshot | null = null;
 let connectionState: "idle" | "connecting" | "connected" | "error" = "idle";
-let connectionError = "";
 let currentRoomId = getRoomIdFromUrl();
 let shareUrl = currentRoomId ? buildShareUrl(currentRoomId) : "";
 let socket: WebSocket | null = null;
@@ -24,7 +23,6 @@ let pollingTimer: number | null = null;
 let isCreatingRoom = false;
 let isFetchingSnapshot = false;
 let localSelectedPieceId: string | null = null;
-let localStatusMessage = "";
 
 function battleChoiceIcon(type: PieceType): string {
   const svg =
@@ -67,58 +65,12 @@ function setRoomInUrl(roomId: string): void {
   shareUrl = buildShareUrl(roomId);
 }
 
-function currentViewMode(): ViewMode {
-  if (connectionState === "error") {
-    return "error";
-  }
-  if (!currentRoomId) {
-    return "home";
-  }
-  if (!roomSnapshot) {
-    return "connecting";
-  }
-  return "room";
-}
-
-function roomStatusText(): string {
-  if (!currentRoomId) {
-    return "Комната не создана.";
-  }
-  if (connectionState === "connecting") {
-    return `Подключаемся к комнате ${currentRoomId}...`;
-  }
-  if (connectionState === "error") {
-    return connectionError || "Ошибка подключения к комнате.";
-  }
-  if (!roomSnapshot) {
-    return `Комната ${currentRoomId} подготовлена.`;
-  }
-
-  const role = roomSnapshot.yourPlayerId === 1 ? "Вы игрок 1." : "Вы игрок 2.";
-  const lobbyState =
-    roomSnapshot.phase === "waiting"
-      ? `Подключено ${roomSnapshot.connectedPlayers}/${roomSnapshot.requiredPlayers}.`
-      : roomSnapshot.phase === "setup"
-        ? `Подключено ${roomSnapshot.connectedPlayers}/${roomSnapshot.requiredPlayers}. Идет подготовка.`
-        : `Подключено ${roomSnapshot.connectedPlayers}/${roomSnapshot.requiredPlayers}. Игра активна.`;
-
-  return `${role} ${lobbyState}`;
-}
-
 function canUseLocalTurnInteractions(): boolean {
   return Boolean(roomSnapshot && roomSnapshot.canAct && roomSnapshot.phase === "turn");
 }
 
 function clearLocalSelection(): void {
   localSelectedPieceId = null;
-}
-
-function setLocalStatusMessage(message: string): void {
-  localStatusMessage = message;
-}
-
-function clearLocalStatusMessage(): void {
-  localStatusMessage = "";
 }
 
 function visiblePieceAt(col: number, row: number) {
@@ -139,7 +91,6 @@ function isAdjacent(fromCol: number, fromRow: number, toCol: number, toRow: numb
 function syncLocalSelectionWithSnapshot(): void {
   if (!canUseLocalTurnInteractions()) {
     clearLocalSelection();
-    clearLocalStatusMessage();
     return;
   }
 
@@ -147,27 +98,6 @@ function syncLocalSelectionWithSnapshot(): void {
   if (!selectedPiece || selectedPiece.owner !== roomSnapshot?.yourPlayerId) {
     clearLocalSelection();
   }
-}
-
-function statusMessage(): string {
-  if (roomSnapshot?.phase === "battle_pick" && roomSnapshot.battle) {
-    return roomSnapshot.battle.yourLocked
-      ? "Выбор зафиксирован. Ждем решение соперника."
-      : "Ничья. Одновременно выберите новый знак.";
-  }
-  if (localStatusMessage && roomSnapshot?.phase === "turn") {
-    return localStatusMessage;
-  }
-  if (roomSnapshot) {
-    return roomSnapshot.message;
-  }
-  if (connectionState === "error") {
-    return connectionError || "Не удалось подключиться к комнате.";
-  }
-  if (connectionState === "connecting") {
-    return "Ищем комнату и подключаемся к серверу.";
-  }
-  return "Нажмите «Новая игра», выберите пресет и отправьте ссылку сопернику.";
 }
 
 function showConfigModal(show: boolean): void {
@@ -203,14 +133,12 @@ async function createRoom(): Promise<void> {
     setRoomInUrl(payload.roomId);
     roomSnapshot = null;
     connectionState = "connecting";
-    connectionError = "";
     showConfigModal(false);
     syncUi();
     requestRender();
     await bootstrapRoom(payload.roomId);
   } catch (error) {
     connectionState = "error";
-    connectionError = "Не удалось создать комнату.";
     syncUi();
     requestRender();
     console.error(error);
@@ -267,7 +195,6 @@ async function fetchSnapshot(roomId: string): Promise<void> {
     requestRender();
   } catch (error) {
     connectionState = "error";
-    connectionError = "Не удалось получить состояние комнаты.";
     syncUi();
     requestRender();
     console.error(error);
@@ -278,7 +205,6 @@ async function fetchSnapshot(roomId: string): Promise<void> {
 
 async function bootstrapRoom(roomId: string): Promise<void> {
   connectionState = "connecting";
-  connectionError = "";
   syncUi();
   requestRender();
 
@@ -317,7 +243,6 @@ function connectToRoom(roomId: string): void {
   }
 
   connectionState = "connecting";
-  connectionError = "";
   syncUi();
   requestRender();
 
@@ -343,7 +268,6 @@ function connectToRoom(roomId: string): void {
 
     if (data.type === "error") {
       connectionState = "error";
-      connectionError = data.message;
       syncUi();
       requestRender();
       return;
@@ -360,7 +284,6 @@ function connectToRoom(roomId: string): void {
     socket = null;
     if (currentRoomId) {
       connectionState = "error";
-      connectionError = "Соединение с комнатой потеряно. Обновите страницу или откройте ссылку снова.";
     } else {
       connectionState = "idle";
     }
@@ -411,7 +334,6 @@ function handleBoardClick(col: number, row: number): void {
 
   if (clickedPiece?.owner === yourPlayerId) {
     localSelectedPieceId = clickedPiece.id;
-    setLocalStatusMessage("Фигура выбрана. Выберите соседнюю клетку для хода или атаки.");
     syncUi();
     requestRender();
     return;
@@ -419,14 +341,12 @@ function handleBoardClick(col: number, row: number): void {
 
   const selectedPiece = visiblePieceById(localSelectedPieceId);
   if (!selectedPiece || selectedPiece.owner !== yourPlayerId) {
-    setLocalStatusMessage("Сначала выберите свою фигуру.");
     syncUi();
     requestRender();
     return;
   }
 
   if (!isAdjacent(selectedPiece.col, selectedPiece.row, col, row)) {
-    setLocalStatusMessage("Ходить можно только на 1 клетку по вертикали или горизонтали.");
     syncUi();
     requestRender();
     return;
@@ -434,7 +354,6 @@ function handleBoardClick(col: number, row: number): void {
 
   if (!clickedPiece) {
     clearLocalSelection();
-    clearLocalStatusMessage();
     syncUi();
     requestRender();
     void postAction({
@@ -447,14 +366,12 @@ function handleBoardClick(col: number, row: number): void {
   }
 
   if (clickedPiece.owner === yourPlayerId) {
-    setLocalStatusMessage("Нельзя ходить на клетку со своей фигурой.");
     syncUi();
     requestRender();
     return;
   }
 
   clearLocalSelection();
-  clearLocalStatusMessage();
   syncUi();
   requestRender();
   void postAction({
@@ -470,13 +387,10 @@ function resolveBattleChoice(choice: PieceType): void {
     return;
   }
   clearLocalSelection();
-  clearLocalStatusMessage();
   void postAction({ type: "battle_choice", choice });
 }
 
 function syncUi(): void {
-  ui.footerStatusLine.textContent = statusMessage();
-  ui.footerConnectionLine.textContent = roomStatusText();
   ui.copyLinkBtn.disabled = !shareUrl;
 
   ui.battleChoicePanel.innerHTML = "";
@@ -504,9 +418,7 @@ function syncUi(): void {
     ui.readySetupBtn.disabled = roomSnapshot.setup.yourReady;
     ui.readySetupBtn.textContent = roomSnapshot.setup.yourReady ? "Готово" : "Готов";
     ui.rerollSetupBtn.disabled = false;
-    ui.setupStatusLine.textContent = roomSnapshot.setup.opponentReady
-      ? "Соперник уже готов. Можно подтвердить старт или пересобрать свою линию."
-      : "Пересоберите свои 16 фигур при желании. У вас 5/5/5 и одна случайная фигура.";
+    ui.setupStatusLine.textContent = "";
   }
 }
 
@@ -517,9 +429,9 @@ function requestRender(): void {
 function renderGameToText(): string {
   if (!roomSnapshot) {
     return JSON.stringify({
-      mode: currentViewMode(),
+      mode: currentRoomId ? connectionState : "home",
+      connectionState,
       roomId: currentRoomId,
-      message: statusMessage(),
     });
   }
 
@@ -574,28 +486,30 @@ async function copyInviteLink(): Promise<void> {
     return;
   }
 
+  const defaultLabel = "Копировать ссылку";
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(shareUrl);
     } else if (!legacyCopyText(shareUrl)) {
       throw new Error("clipboard unavailable");
     }
-    ui.footerConnectionLine.textContent = "Ссылка скопирована. Отправьте ее второму игроку.";
+    ui.copyLinkBtn.textContent = "Скопировано";
   } catch {
     if (legacyCopyText(shareUrl)) {
-      ui.footerConnectionLine.textContent = "Ссылка скопирована. Отправьте ее второму игроку.";
+      ui.copyLinkBtn.textContent = "Скопировано";
       return;
     }
-    ui.footerConnectionLine.textContent = `Ссылка: ${shareUrl}`;
+    ui.copyLinkBtn.textContent = "Ссылка не скопирована";
+  } finally {
+    window.setTimeout(() => {
+      ui.copyLinkBtn.textContent = defaultLabel;
+    }, 1600);
   }
 }
 
 const BoardScene = createBoardScene({
   getSnapshot: () => roomSnapshot,
   getSelectedPieceId: () => localSelectedPieceId,
-  getViewMode: currentViewMode,
-  getStatusMessage: statusMessage,
-  getShareUrl: () => shareUrl,
   onBoardClick: handleBoardClick,
   onSceneReady: (scene) => {
     boardScene = scene;

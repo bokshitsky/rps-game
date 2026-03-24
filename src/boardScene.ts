@@ -9,18 +9,13 @@ import {
   boardWidth,
   cellSize,
   playerColors,
-  sidePanelWidth,
-  canvasHeight,
 } from "./constants";
-import { mixColor, wrapLines } from "./utils";
-import type { KnownType, PlayerId, RoomSnapshot, ViewMode } from "./types";
+import { mixColor } from "./utils";
+import type { KnownType, PlayerId, RoomSnapshot } from "./types";
 
 export interface BoardSceneDeps {
   getSnapshot: () => RoomSnapshot | null;
   getSelectedPieceId: () => string | null;
-  getViewMode: () => ViewMode;
-  getStatusMessage: () => string;
-  getShareUrl: () => string;
   onBoardClick: (col: number, row: number) => void;
   onSceneReady: (scene: { renderState: () => void }) => void;
 }
@@ -54,8 +49,6 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
 
       this.drawBoard();
       this.drawPieces();
-      this.drawSidePanel();
-      this.drawOverlay();
     }
 
     private keep<T extends Phaser.GameObjects.GameObject>(item: T): T {
@@ -158,135 +151,6 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
         { col, row: row - 1 },
         { col, row: row + 1 },
       ].filter((cell) => cell.col >= 0 && cell.col < boardCols && cell.row >= 0 && cell.row < boardRows);
-    }
-
-    private drawSidePanel(): void {
-      const snapshot = deps.getSnapshot();
-      this.keep(this.add.rectangle(boardWidth + sidePanelWidth / 2, canvasHeight / 2, sidePanelWidth, canvasHeight, 0x13212f));
-
-      this.keep(
-        this.add.text(boardWidth + 22, 20, this.sidePanelTitle(snapshot), {
-          fontFamily: "Trebuchet MS, sans-serif",
-          fontSize: "30px",
-          color: "#f8fafc",
-          fontStyle: "bold",
-        }),
-      );
-
-      this.keep(
-        this.add.text(boardWidth + 22, 68, wrapLines(deps.getStatusMessage(), 30).join("\n"), {
-          fontFamily: "Trebuchet MS, sans-serif",
-          fontSize: "18px",
-          color: "rgba(248,250,252,0.82)",
-          lineSpacing: 6,
-        }),
-      );
-
-    }
-
-    private sidePanelTitle(snapshot: RoomSnapshot | null): string {
-      const mode = deps.getViewMode();
-      if (mode === "home") {
-        return "Создать Матч";
-      }
-      if (mode === "connecting") {
-        return "Подключение";
-      }
-      if (mode === "error") {
-        return "Ошибка";
-      }
-      if (!snapshot) {
-        return "Комната";
-      }
-      if (snapshot.phase === "waiting") {
-        return "Ожидание";
-      }
-      if (snapshot.phase === "setup") {
-        return "Подготовка";
-      }
-      if (snapshot.phase === "game_over") {
-        return `Победа: игрок ${snapshot.winner}`;
-      }
-      if (snapshot.phase === "battle_pick" && snapshot.battle) {
-        return snapshot.battle.yourLocked ? "Ждем выбор соперника" : "Выберите знак";
-      }
-      return snapshot.canAct ? "Ваш ход" : "Ход соперника";
-    }
-
-
-    private drawOverlay(): void {
-      const mode = deps.getViewMode();
-      const snapshot = deps.getSnapshot();
-      const overlayText =
-        mode === "home"
-          ? {
-              title: "Новая Мультиплеерная Партия",
-              body: "Нажмите «Новая игра», выберите стартовый пресет и получите ссылку для соперника.",
-            }
-          : mode === "connecting"
-            ? {
-                title: "Подключаемся",
-                body: "Открываем комнату и ждем снимок состояния от сервера.",
-              }
-            : mode === "error"
-              ? {
-                  title: "Проблема С Подключением",
-                  body: deps.getStatusMessage(),
-                }
-              : snapshot?.phase === "waiting"
-                ? {
-                    title: "Комната Создана",
-                    body: "Отправьте ссылку сопернику. Когда второй игрок зайдет, оба соберут стартовую расстановку и нажмут «Готов».",
-                  }
-                : snapshot?.phase === "game_over"
-                  ? {
-                      title: `Победа Игрока ${snapshot.winner}`,
-                      body: "Можно создать новую комнату той же кнопкой сверху.",
-                    }
-                  : null;
-
-      if (!overlayText) {
-        return;
-      }
-
-      this.keep(this.add.rectangle(boardWidth / 2, boardHeight / 2, boardWidth, boardHeight, 0x13212f, 0.72));
-      this.keep(
-        this.add
-          .text(boardWidth / 2, 180, overlayText.title, {
-            fontFamily: "Trebuchet MS, sans-serif",
-            fontSize: "36px",
-            color: "#ffffff",
-            fontStyle: "bold",
-            align: "center",
-          })
-          .setOrigin(0.5, 0.5),
-      );
-      this.keep(
-        this.add
-          .text(boardWidth / 2, 260, wrapLines(overlayText.body, 46).join("\n"), {
-            fontFamily: "Trebuchet MS, sans-serif",
-            fontSize: "22px",
-            color: "#f8fafc",
-            align: "center",
-            lineSpacing: 8,
-          })
-          .setOrigin(0.5, 0.5),
-      );
-
-      const shareUrl = deps.getShareUrl();
-      if (shareUrl && (mode === "room" || mode === "connecting")) {
-        this.keep(
-          this.add
-            .text(boardWidth / 2, 360, wrapLines(shareUrl, 48).join("\n"), {
-              fontFamily: "Trebuchet MS, sans-serif",
-              fontSize: "16px",
-              color: "#cbd5e1",
-              align: "center",
-              lineSpacing: 6,
-            })
-            .setOrigin(0.5, 0.5),
-        );
-      }
     }
 
     private getPieceTextureKey(player: PlayerId, type: KnownType): string {

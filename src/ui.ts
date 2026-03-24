@@ -1,4 +1,4 @@
-import { boardWidth, canvasWidth } from "./constants";
+import { canvasHeight, canvasWidth } from "./constants";
 
 export interface AppShellRefs {
   root: HTMLDivElement;
@@ -9,8 +9,6 @@ export interface AppShellRefs {
   rerollSetupBtn: HTMLButtonElement;
   readySetupBtn: HTMLButtonElement;
   setupStatusLine: HTMLDivElement;
-  footerStatusLine: HTMLSpanElement;
-  footerConnectionLine: HTMLSpanElement;
   gameHost: HTMLDivElement;
   modalRoot: HTMLDivElement;
   presetInput: HTMLSelectElement;
@@ -19,6 +17,7 @@ export interface AppShellRefs {
 }
 
 export function createAppShell(app: HTMLDivElement): AppShellRefs {
+  const aspectRatio = canvasWidth / canvasHeight;
   const style = document.createElement("style");
   style.textContent = `
     :root {
@@ -32,47 +31,35 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      min-height: 100vh;
+      height: 100vh;
       font-family: "Trebuchet MS", "Segoe UI", sans-serif;
       background:
         radial-gradient(circle at top left, rgba(255,255,255,0.7), transparent 35%),
         linear-gradient(135deg, var(--bg-a), var(--bg-b));
       color: var(--ink);
-      display: grid;
-      place-items: center;
     }
     #app {
-      width: min(100vw, 1320px);
-      padding: 24px;
+      width: 100vw;
+      height: 100vh;
+      padding: 0;
     }
     .shell {
       position: relative;
-      background: rgba(255,255,255,0.78);
-      border: 1px solid var(--line);
-      border-radius: 28px;
-      padding: 18px;
-      box-shadow: 0 20px 60px rgba(19,33,47,0.16);
-      backdrop-filter: blur(12px);
+      height: 100%;
+      background: rgba(255,255,255,0.32);
+      padding: 0;
+      backdrop-filter: blur(8px);
+      overflow: hidden;
     }
     .topbar {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 3;
       display: flex;
-      justify-content: space-between;
-      gap: 16px;
+      justify-content: flex-end;
+      gap: 10px;
       align-items: center;
-      margin-bottom: 16px;
-    }
-    .title {
-      margin: 0;
-      font-size: clamp(28px, 4vw, 42px);
-      line-height: 0.95;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-    }
-    .subtitle {
-      margin: 6px 0 0;
-      color: var(--muted);
-      max-width: 660px;
-      font-size: 14px;
     }
     .actions {
       display: flex;
@@ -102,23 +89,29 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     }
     .board-wrap {
       position: relative;
-      display: grid;
-      justify-items: center;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     #game-host {
-      width: min(100%, ${canvasWidth}px);
-      border-radius: 22px;
+      width: min(100vw, calc(100vh * ${aspectRatio}));
+      height: min(100vh, calc(100vw / ${aspectRatio}));
       overflow: hidden;
       line-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     #game-host canvas {
       width: 100%;
-      height: auto;
+      height: 100%;
       display: block;
     }
     .choice-row {
       position: absolute;
-      left: ${boardWidth / 2}px;
+      left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
       display: flex;
@@ -150,7 +143,7 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     }
     .setup-panel {
       position: absolute;
-      left: ${boardWidth / 2}px;
+      left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
       display: grid;
@@ -172,18 +165,7 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
       justify-content: center;
     }
     .setup-panel .setup-status {
-      font-size: 13px;
-      color: var(--muted);
-      max-width: 280px;
-    }
-    .footer {
-      margin-top: 12px;
-      color: var(--muted);
-      font-size: 13px;
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
+      display: none;
     }
     .hidden {
       display: none !important;
@@ -235,13 +217,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
   app.innerHTML = `
     <div class="shell">
       <div class="topbar">
-        <div>
-          <h1 class="title">Hidden RPS</h1>
-          <p class="subtitle">
-            Мультиплеерная Phaser-версия: первый игрок создает комнату, получает уникальную ссылку
-            и отправляет ее сопернику. После подключения обоих игра начинается автоматически.
-          </p>
-        </div>
         <div class="actions">
           <button id="start-btn">Новая игра</button>
           <button id="copy-link-btn" class="secondary" disabled>Копировать ссылку</button>
@@ -257,10 +232,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
           </div>
           <div id="setup-status" class="setup-status"></div>
         </div>
-      </div>
-      <div class="footer">
-        <span id="status-line"></span>
-        <span id="connection-line"></span>
       </div>
       <div id="config-modal" class="modal-backdrop hidden">
         <div class="modal">
@@ -286,8 +257,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
   const rerollSetupBtn = app.querySelector<HTMLButtonElement>("#reroll-setup-btn");
   const readySetupBtn = app.querySelector<HTMLButtonElement>("#ready-setup-btn");
   const setupStatusLine = app.querySelector<HTMLDivElement>("#setup-status");
-  const footerStatusLine = app.querySelector<HTMLSpanElement>("#status-line");
-  const footerConnectionLine = app.querySelector<HTMLSpanElement>("#connection-line");
   const gameHost = app.querySelector<HTMLDivElement>("#game-host");
   const modalRoot = app.querySelector<HTMLDivElement>("#config-modal");
   const presetInput = app.querySelector<HTMLSelectElement>("#preset-select");
@@ -302,8 +271,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     !rerollSetupBtn ||
     !readySetupBtn ||
     !setupStatusLine ||
-    !footerStatusLine ||
-    !footerConnectionLine ||
     !gameHost ||
     !modalRoot ||
     !presetInput ||
@@ -322,8 +289,6 @@ export function createAppShell(app: HTMLDivElement): AppShellRefs {
     rerollSetupBtn,
     readySetupBtn,
     setupStatusLine,
-    footerStatusLine,
-    footerConnectionLine,
     gameHost,
     modalRoot,
     presetInput,

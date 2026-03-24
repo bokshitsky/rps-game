@@ -238,6 +238,8 @@ class RoomManager:
             return
 
         if result == "defender":
+            defender.col = attacker.col
+            defender.row = attacker.row
             attacker.alive = False
             room.last_battle_summary = (
                 f"Игрок {defender.owner}: {defender.type} побеждает {attacker.type}."
@@ -290,6 +292,8 @@ class RoomManager:
             attacker.row = defender.row
             room.last_battle_summary = f"После переопределения типов игрок {attacker.owner} победил."
         else:
+            defender.col = attacker.col
+            defender.row = attacker.row
             attacker.alive = False
             room.last_battle_summary = f"После переопределения типов игрок {defender.owner} победил."
         self._check_winner_or_end_turn(room)
