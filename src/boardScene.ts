@@ -222,7 +222,7 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
     }
 
     private createPieceTextures(): void {
-      const knownTypes: KnownType[] = ["rock", "paper", "scissors", "hidden"];
+      const knownTypes: KnownType[] = ["rock", "paper", "scissors", "king", "hidden"];
       for (const player of [1, 2] as const) {
         for (const type of knownTypes) {
           const key = this.getPieceTextureKey(player, type);
@@ -309,13 +309,32 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
 
       px(10, 5, 10, 10, skin);
       px(9, 6, 12, 9, skin);
-      px(10, 4, 10, 2, hair);
-      px(12, 1, 6, 4, hair);
-      px(11, 5, 8, 1, mixColor(base, 0xffffff, 0.12));
+      if (type === "king") {
+        px(11, 3, 8, 2, "#f2be39");
+        px(10, 4, 2, 4, "#f2be39");
+        px(18, 4, 2, 4, "#f2be39");
+        px(12, 2, 2, 2, "#f6d56d");
+        px(15, 1, 2, 3, "#ffe28a");
+        px(17, 2, 2, 2, "#f6d56d");
+        px(11, 3, 8, 1, outline);
+        px(10, 4, 1, 4, outline);
+        px(19, 4, 1, 4, outline);
+        px(11, 8, 8, 1, outline);
+        px(12, 4, 1, 1, outline);
+        px(16, 3, 1, 1, outline);
+        px(18, 4, 1, 1, outline);
+        px(10, 7, 10, 1, hair);
+      } else {
+        px(10, 4, 10, 2, hair);
+        px(12, 1, 6, 4, hair);
+        px(11, 5, 8, 1, mixColor(base, 0xffffff, 0.12));
+      }
       px(9, 6, 1, 9, outline);
       px(20, 6, 1, 9, outline);
       px(10, 15, 10, 1, outline);
-      px(10, 4, 10, 1, outline);
+      if (type !== "king") {
+        px(10, 4, 10, 1, outline);
+      }
 
       px(12, 9, 2, 1, outline);
       px(16, 9, 2, 1, outline);

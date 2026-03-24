@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from fastapi import HTTPException, WebSocket
 
-from .constants import BOARD_COLS, PIECE_TYPES, STARTING_PIECES_PER_PLAYER, TYPE_ORDER
+from .constants import BOARD_COLS, KING_TYPE, PIECE_TYPES, STARTING_PIECES_PER_PLAYER, TYPE_ORDER
 from .models import BattleState, Piece, RestartState, Room
 
 
@@ -17,6 +17,12 @@ PLAYER_PRESENCE_TIMEOUT_SECONDS = 5.0
 
 
 def compare_types(attacker: str, defender: str) -> str:
+    if attacker == KING_TYPE and defender == KING_TYPE:
+        return "attacker"
+    if defender == KING_TYPE:
+        return "attacker"
+    if attacker == KING_TYPE:
+        return "defender"
     if attacker == defender:
         return "tie"
     return "attacker" if TYPE_ORDER[attacker] == defender else "defender"
@@ -31,14 +37,17 @@ def create_chess_like_cells(player_id: int) -> list[dict[str, int]]:
     return cells
 
 
-def create_random_distribution() -> list[str]:
-    distribution = ["rock"] * 5 + ["paper"] * 5 + ["scissors"] * 5 + [random.choice(PIECE_TYPES)]
+def create_random_distribution(preset: str) -> list[str]:
+    if preset == "king":
+        distribution = ["rock"] * 5 + ["paper"] * 5 + ["scissors"] * 5 + [KING_TYPE]
+    else:
+        distribution = ["rock"] * 5 + ["paper"] * 5 + ["scissors"] * 5 + [random.choice(PIECE_TYPES)]
     random.shuffle(distribution)
     return distribution
 
 
-def create_player_pieces(player_id: int) -> list[Piece]:
-    distribution = create_random_distribution()
+def create_player_pieces(player_id: int, preset: str) -> list[Piece]:
+    distribution = create_random_distribution(preset)
     cells = create_chess_like_cells(player_id)
     pieces: list[Piece] = []
     for index, piece_type in enumerate(distribution):
@@ -168,7 +177,8 @@ class RoomManager:
     def _start_setup(self, room: Room) -> None:
         room.phase = "setup"
         room.current_player = None
-        room.pieces = create_player_pieces(1) + create_player_pieces(2)
+        preset = str(room.parameters.get("preset", "standard"))
+        room.pieces = create_player_pieces(1, preset) + create_player_pieces(2, preset)
         room.winner = None
         room.battle = None
         room.restart = None
@@ -210,7 +220,8 @@ class RoomManager:
 
     def _replace_player_pieces(self, room: Room, player_id: int) -> None:
         other_pieces = [piece for piece in room.pieces if piece.owner != player_id]
-        room.pieces = other_pieces + create_player_pieces(player_id)
+        preset = str(room.parameters.get("preset", "standard"))
+        room.pieces = other_pieces + create_player_pieces(player_id, preset)
 
     def _reroll_setup(self, room: Room, player_id: int) -> None:
         if room.connected_players() < 2 or room.phase != "setup":
@@ -358,9 +369,17 @@ class RoomManager:
         player2_captured = STARTING_PIECES_PER_PLAYER - len(room.get_alive_pieces(1))
         winner = None
 
-        if player1_captured >= victory_target or len(room.get_alive_pieces(2)) == 0:
+        if room.parameters.get("preset") == "king":
+            player1_king_alive = any(piece.alive and piece.owner == 1 and piece.type == KING_TYPE for piece in room.pieces)
+            player2_king_alive = any(piece.alive and piece.owner == 2 and piece.type == KING_TYPE for piece in room.pieces)
+            if not player2_king_alive:
+                winner = 1
+            elif not player1_king_alive:
+                winner = 2
+
+        if winner is None and (player1_captured >= victory_target or len(room.get_alive_pieces(2)) == 0):
             winner = 1
-        elif player2_captured >= victory_target or len(room.get_alive_pieces(1)) == 0:
+        elif winner is None and (player2_captured >= victory_target or len(room.get_alive_pieces(1)) == 0):
             winner = 2
 
         if winner:

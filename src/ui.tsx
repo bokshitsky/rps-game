@@ -221,6 +221,7 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
               }
             >
               <option value="standard">Стандартная партия</option>
+              <option value="king">Режим с королем</option>
             </select>
             <label htmlFor="victory-target-range">Сколько фигур нужно съесть для победы: {state.victoryTarget}</label>
             <input

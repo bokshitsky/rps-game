@@ -507,6 +507,7 @@ function syncUi(): void {
     onReady: () => readySetup(),
     onPresetChange: (value) => {
       presetValue = value;
+      victoryTarget = value === "king" ? 16 : 12;
       syncUi();
     },
     onVictoryTargetChange: (value) => {

@@ -1,7 +1,8 @@
 export type PieceType = "rock" | "paper" | "scissors";
+export type PieceKind = PieceType | "king";
 export type PlayerId = 1 | 2;
 export type Phase = "waiting" | "setup" | "turn" | "battle_pick" | "game_over";
-export type KnownType = PieceType | "hidden";
+export type KnownType = PieceKind | "hidden";
 export type ViewMode = "home" | "connecting" | "room" | "error";
 
 export interface VisiblePiece {
@@ -44,7 +45,7 @@ export interface RoomSnapshot {
   connectedPlayers: number;
   requiredPlayers: number;
   parameters: {
-    preset: string;
+    preset: "standard" | "king";
     victoryTarget: number;
   };
   canAct: boolean;
