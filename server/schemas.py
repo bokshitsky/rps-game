@@ -13,3 +13,4 @@ class RoomActionRequest(BaseModel):
     targetCol: Optional[int] = None
     targetRow: Optional[int] = None
     choice: Optional[str] = None
+    accepted: Optional[bool] = None

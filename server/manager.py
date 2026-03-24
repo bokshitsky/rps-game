@@ -9,7 +9,7 @@ from typing import Any, Optional
 from fastapi import HTTPException, WebSocket
 
 from .constants import BOARD_COLS, PIECE_TYPES, TYPE_ORDER
-from .models import BattleState, Piece, Room
+from .models import BattleState, Piece, RestartState, Room
 
 
 ROOM_POLL_TIMEOUT_SECONDS = 20.0
@@ -125,6 +125,10 @@ class RoomManager:
                 self._reroll_setup(room, player_id)
             elif action_type == "ready_setup":
                 self._ready_setup(room, player_id)
+            elif action_type == "request_restart":
+                self._request_restart(room, player_id)
+            elif action_type == "respond_restart":
+                self._respond_restart(room, player_id, bool(payload.get("accepted")))
 
     async def notify_refresh(self, room: Room) -> None:
         stale_players: list[int] = []
@@ -167,6 +171,7 @@ class RoomManager:
         room.pieces = create_player_pieces(1) + create_player_pieces(2)
         room.winner = None
         room.battle = None
+        room.restart = None
         room.turn_count = 0
         room.last_battle_summary = ""
         room.ready_players = {1: False, 2: False}
@@ -176,6 +181,7 @@ class RoomManager:
         room.phase = "turn"
         room.current_player = 1
         room.turn_count = 1
+        room.restart = None
         room.message = ""
 
     def _refresh_presence_message(self, room: Room) -> None:
@@ -187,6 +193,9 @@ class RoomManager:
             return
         if active_players < 2:
             room.message = "Противник отключился. Ждем переподключения."
+            return
+        if room.restart:
+            room.message = "Ожидаем ответ соперника на предложение начать сначала."
             return
         if room.phase == "setup":
             if room.ready_players.get(1) and room.ready_players.get(2):
@@ -218,6 +227,23 @@ class RoomManager:
             self._start_match(room)
             return
         room.message = "Ждем подтверждение соперника."
+
+    def _request_restart(self, room: Room, player_id: int) -> None:
+        if room.active_players(PLAYER_PRESENCE_TIMEOUT_SECONDS) < 2 or room.restart:
+            return
+        room.restart = RestartState(requester_id=player_id)
+        room.message = "Ожидаем ответ соперника на предложение начать сначала."
+
+    def _respond_restart(self, room: Room, player_id: int, accepted: bool) -> None:
+        if room.active_players(PLAYER_PRESENCE_TIMEOUT_SECONDS) < 2 or not room.restart:
+            return
+        if room.restart.requester_id == player_id:
+            return
+        if accepted:
+            self._start_setup(room)
+            return
+        room.restart = None
+        room.message = "Предложение начать сначала было отклонено."
 
     def _is_adjacent(self, piece: Piece, col: int, row: int) -> bool:
         return abs(piece.col - col) + abs(piece.row - row) == 1
@@ -331,6 +357,7 @@ class RoomManager:
         if winner:
             room.phase = "game_over"
             room.winner = winner
+            room.restart = None
             room.message = f"Игрок {winner} победил и захватил поле."
             return
         self._end_turn(room)

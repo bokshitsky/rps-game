@@ -23,6 +23,11 @@ export interface SetupState {
   opponentReady: boolean;
 }
 
+export interface RestartState {
+  requestedByYou: boolean;
+  awaitingYourDecision: boolean;
+}
+
 export interface RoomSnapshot {
   roomId: string;
   phase: Phase;
@@ -33,6 +38,7 @@ export interface RoomSnapshot {
   winner: PlayerId | null;
   setup: SetupState;
   battle: BattleState | null;
+  restart: RestartState | null;
   message: string;
   lastBattleSummary: string;
   connectedPlayers: number;

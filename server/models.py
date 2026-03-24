@@ -29,6 +29,11 @@ class BattleState:
 
 
 @dataclass
+class RestartState:
+    requester_id: int
+
+
+@dataclass
 class Room:
     room_id: str
     parameters: dict[str, Any]
@@ -37,6 +42,7 @@ class Room:
     pieces: list[Piece] = field(default_factory=list)
     winner: Optional[int] = None
     battle: Optional[BattleState] = None
+    restart: Optional[RestartState] = None
     message: str = "Ждем второго игрока по ссылке."
     turn_count: int = 0
     last_battle_summary: str = ""
@@ -118,6 +124,12 @@ class Room:
                 "round": self.battle.round,
                 "yourLocked": player_id in self.battle.locked_choices,
                 "opponentLocked": (2 if player_id == 1 else 1) in self.battle.locked_choices,
+            },
+            "restart": None
+            if not self.restart
+            else {
+                "requestedByYou": self.restart.requester_id == player_id,
+                "awaitingYourDecision": self.restart.requester_id != player_id,
             },
             "message": self.message,
             "lastBattleSummary": self.last_battle_summary,

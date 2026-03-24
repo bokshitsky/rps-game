@@ -19,6 +19,9 @@ export interface AppShellState {
   canCopyLink: boolean;
   copyLinkLabel: string;
   showControls: boolean;
+  showRestartButton: boolean;
+  restartButtonLabel: string;
+  restartButtonDisabled: boolean;
   showBattleChoices: boolean;
   showSetup: boolean;
   readyDisabled: boolean;
@@ -31,6 +34,7 @@ export interface AppShellState {
   overlayPrimaryLabel: string | null;
   overlaySecondaryLabel: string | null;
   onStart: () => void;
+  onRestart: () => void;
   onCopyLink: () => void;
   onBattleChoice: (type: PieceType) => void;
   onReroll: () => void;
@@ -51,6 +55,9 @@ const defaultState: AppShellState = {
   canCopyLink: false,
   copyLinkLabel: "Копировать ссылку",
   showControls: true,
+  showRestartButton: false,
+  restartButtonLabel: "Начать сначала",
+  restartButtonDisabled: false,
   showBattleChoices: false,
   showSetup: false,
   readyDisabled: false,
@@ -63,6 +70,7 @@ const defaultState: AppShellState = {
   overlayPrimaryLabel: "Новая игра",
   overlaySecondaryLabel: null,
   onStart: () => undefined,
+  onRestart: () => undefined,
   onCopyLink: () => undefined,
   onBattleChoice: () => undefined,
   onReroll: () => undefined,
@@ -102,6 +110,15 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
           <div className="controls-dock">
             <div className="actions">
               <button onClick={state.onStart}>Новая игра</button>
+              {state.showRestartButton ? (
+                <button
+                  className="secondary"
+                  onClick={state.onRestart}
+                  disabled={state.restartButtonDisabled}
+                >
+                  {state.restartButtonLabel}
+                </button>
+              ) : null}
               <button
                 className="secondary"
                 onClick={state.onCopyLink}

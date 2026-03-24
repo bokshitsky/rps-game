@@ -319,6 +319,20 @@ function readySetup(): void {
   void postAction({ type: "ready_setup" });
 }
 
+function requestRestart(): void {
+  if (!roomSnapshot || roomSnapshot.connectedPlayers < roomSnapshot.requiredPlayers || roomSnapshot.restart) {
+    return;
+  }
+  void postAction({ type: "request_restart" });
+}
+
+function respondRestart(accepted: boolean): void {
+  if (!roomSnapshot?.restart?.awaitingYourDecision) {
+    return;
+  }
+  void postAction({ type: "respond_restart", accepted });
+}
+
 function handleBoardClick(col: number, row: number): void {
   if (!roomSnapshot || !canUseLocalTurnInteractions()) {
     return;
@@ -395,6 +409,8 @@ function syncUi(): void {
   const showSetup = snapshot?.phase === "setup" && snapshot.connectedPlayers === snapshot.requiredPlayers;
   const isWaitingForOpponent = snapshot?.phase === "waiting";
   const isGameOver = snapshot?.phase === "game_over";
+  const isRestartRequestedByYou = Boolean(snapshot?.restart?.requestedByYou);
+  const isRestartAwaitingYourDecision = Boolean(snapshot?.restart?.awaitingYourDecision);
   const isOpponentDisconnected = snapshot
     ? snapshot.phase !== "waiting" &&
       snapshot.phase !== "game_over" &&
@@ -438,17 +454,36 @@ function syncUi(): void {
       void copyInviteLink();
     };
     onOverlaySecondary = () => showConfigModal(true);
+  } else if (isRestartAwaitingYourDecision) {
+    overlayTitle = "Начать сначала";
+    overlayDescription = "Соперник предлагает вернуться к экрану случайной стартовой расстановки.";
+    overlayPrimaryLabel = "Согласиться";
+    overlaySecondaryLabel = "Отклонить";
+    onOverlayPrimary = () => respondRestart(true);
+    onOverlaySecondary = () => respondRestart(false);
+  } else if (isRestartRequestedByYou) {
+    overlayTitle = "Ждем решения соперника";
+    overlayDescription = "Если соперник согласится, вы оба вернетесь к экрану стартовой расстановки.";
   } else if (isGameOver) {
     overlayTitle = didYouWin ? "Вы победили" : "Вы проиграли";
     overlayDescription = didYouWin ? "Партия завершена в вашу пользу." : "Соперник захватил поле.";
-    overlayPrimaryLabel = "Начать заново";
-    onOverlayPrimary = () => showConfigModal(true);
+    overlayPrimaryLabel = "Начать сначала";
+    overlaySecondaryLabel = "Новая игра";
+    onOverlayPrimary = () => requestRestart();
+    onOverlaySecondary = () => showConfigModal(true);
   }
 
   const nextState: AppShellState = {
     canCopyLink: Boolean(shareUrl),
     copyLinkLabel,
     showControls: snapshot?.phase === "turn" || snapshot?.phase === "battle_pick" || isOpponentDisconnected,
+    showRestartButton: snapshot ? snapshot.phase !== "waiting" : false,
+    restartButtonLabel: isRestartRequestedByYou ? "Ждем ответа..." : "Начать сначала",
+    restartButtonDisabled:
+      !snapshot ||
+      snapshot.connectedPlayers < snapshot.requiredPlayers ||
+      isRestartRequestedByYou ||
+      isRestartAwaitingYourDecision,
     showBattleChoices: showChoices,
     showSetup,
     readyDisabled: Boolean(showSetup && snapshot?.setup.yourReady),
@@ -461,6 +496,7 @@ function syncUi(): void {
     overlayPrimaryLabel,
     overlaySecondaryLabel,
     onStart: () => showConfigModal(true),
+    onRestart: () => requestRestart(),
     onCopyLink: () => {
       void copyInviteLink();
     },
@@ -509,6 +545,7 @@ function renderGameToText(): string {
     currentPlayer: roomSnapshot.currentPlayer,
     selectedPieceId: localSelectedPieceId,
     setup: roomSnapshot.setup,
+    restart: roomSnapshot.restart,
     visiblePieces: roomSnapshot.visiblePieces,
     counts: roomSnapshot.counts,
     connectedPlayers: roomSnapshot.connectedPlayers,
