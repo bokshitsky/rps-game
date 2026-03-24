@@ -1,5 +1,7 @@
 import Phaser from "phaser";
 
+import attackClickUrl from "./assets/attack-click.wav";
+import moveClickUrl from "./assets/move-click.wav";
 import { createBoardScene } from "./boardScene";
 import { canvasHeight, canvasWidth } from "./constants";
 import type { PieceType, PlayerId, RoomSnapshot } from "./types";
@@ -28,6 +30,46 @@ let isConfigModalOpen = false;
 let presetValue = "standard";
 let victoryTarget = 12;
 let ui: AppShellController | null = null;
+
+const soundKey = "hidden-rps:sound-enabled";
+const soundAssets = {
+  move: createSoundPlayer(moveClickUrl, 0.42),
+  attack: createSoundPlayer(attackClickUrl, 0.5),
+};
+let soundEnabled = loadSoundEnabled();
+
+function createSoundPlayer(src: string, volume: number): HTMLAudioElement {
+  const audio = new Audio(src);
+  audio.preload = "auto";
+  audio.volume = volume;
+  return audio;
+}
+
+function loadSoundEnabled(): boolean {
+  const saved = window.localStorage.getItem(soundKey);
+  return saved === null ? true : saved === "true";
+}
+
+function saveSoundEnabled(value: boolean): void {
+  window.localStorage.setItem(soundKey, String(value));
+}
+
+function toggleSound(): void {
+  soundEnabled = !soundEnabled;
+  saveSoundEnabled(soundEnabled);
+  syncUi();
+}
+
+function playSound(kind: keyof typeof soundAssets): void {
+  if (!soundEnabled) {
+    return;
+  }
+
+  const baseAudio = soundAssets[kind];
+  const audio = baseAudio.cloneNode(true) as HTMLAudioElement;
+  audio.volume = baseAudio.volume;
+  void audio.play().catch(() => undefined);
+}
 
 function getRoomIdFromUrl(): string | null {
   return new URL(window.location.href).searchParams.get("room");
@@ -304,6 +346,12 @@ async function postAction(payload: Record<string, unknown>): Promise<void> {
   }
 
   await fetchSnapshot(currentRoomId);
+
+  if (payload.type === "move_piece") {
+    playSound("move");
+  } else if (payload.type === "attempt_capture") {
+    playSound("attack");
+  }
 }
 
 function rerollSetup(): void {
@@ -481,6 +529,7 @@ function syncUi(): void {
   const nextState: AppShellState = {
     canCopyLink: Boolean(shareUrl),
     copyLinkLabel,
+    soundEnabled,
     showControls: snapshot?.phase === "turn" || snapshot?.phase === "battle_pick" || isOpponentDisconnected,
     showRestartButton: snapshot ? snapshot.phase !== "waiting" : false,
     restartButtonLabel: isRestartRequestedByYou ? "Ждем ответа..." : "Начать сначала",
@@ -504,6 +553,7 @@ function syncUi(): void {
     passiveOverlayLabel: showPassiveOpponentTurnOverlay ? "Ход соперника" : null,
     onStart: () => showConfigModal(true),
     onRestart: () => requestRestart(),
+    onToggleSound: () => toggleSound(),
     onCopyLink: () => {
       void copyInviteLink();
     },

@@ -18,6 +18,7 @@ function battleChoiceIcon(type: PieceType): string {
 export interface AppShellState {
   canCopyLink: boolean;
   copyLinkLabel: string;
+  soundEnabled: boolean;
   showControls: boolean;
   showRestartButton: boolean;
   restartButtonLabel: string;
@@ -37,6 +38,7 @@ export interface AppShellState {
   passiveOverlayLabel: string | null;
   onStart: () => void;
   onRestart: () => void;
+  onToggleSound: () => void;
   onCopyLink: () => void;
   onBattleChoice: (type: PieceType) => void;
   onReroll: () => void;
@@ -57,6 +59,7 @@ export interface AppShellController {
 const defaultState: AppShellState = {
   canCopyLink: false,
   copyLinkLabel: "Копировать ссылку",
+  soundEnabled: true,
   showControls: true,
   showRestartButton: false,
   restartButtonLabel: "Начать сначала",
@@ -76,6 +79,7 @@ const defaultState: AppShellState = {
   passiveOverlayLabel: null,
   onStart: () => undefined,
   onRestart: () => undefined,
+  onToggleSound: () => undefined,
   onCopyLink: () => undefined,
   onBattleChoice: () => undefined,
   onReroll: () => undefined,
@@ -116,6 +120,12 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
           <div className="controls-dock">
             <div className="actions">
               <button onClick={state.onStart}>Новая игра</button>
+              <button
+                className="secondary"
+                onClick={state.onToggleSound}
+              >
+                {state.soundEnabled ? "Звук: вкл" : "Звук: выкл"}
+              </button>
               {state.showRestartButton ? (
                 <button
                   className="secondary"
