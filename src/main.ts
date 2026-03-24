@@ -26,6 +26,7 @@ let localSelectedPieceId: string | null = null;
 let copyLinkLabel = "Копировать ссылку";
 let isConfigModalOpen = false;
 let presetValue = "standard";
+let victoryTarget = 12;
 let ui: AppShellController | null = null;
 
 function getRoomIdFromUrl(): string | null {
@@ -111,7 +112,7 @@ async function createRoom(): Promise<void> {
     const response = await fetch("/api/games", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ preset: presetValue }),
+      body: JSON.stringify({ preset: presetValue, victory_target: victoryTarget }),
     });
 
     if (!response.ok) {
@@ -491,6 +492,7 @@ function syncUi(): void {
     rerollDisabled: false,
     showModal: isConfigModalOpen,
     presetValue,
+    victoryTarget,
     overlayTitle,
     overlayDescription,
     overlayPrimaryLabel,
@@ -505,6 +507,10 @@ function syncUi(): void {
     onReady: () => readySetup(),
     onPresetChange: (value) => {
       presetValue = value;
+      syncUi();
+    },
+    onVictoryTargetChange: (value) => {
+      victoryTarget = value;
       syncUi();
     },
     onCancelModal: () => showConfigModal(false),

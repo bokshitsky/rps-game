@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from fastapi import HTTPException, WebSocket
 
-from .constants import BOARD_COLS, PIECE_TYPES, TYPE_ORDER
+from .constants import BOARD_COLS, PIECE_TYPES, STARTING_PIECES_PER_PLAYER, TYPE_ORDER
 from .models import BattleState, Piece, RestartState, Room
 
 
@@ -353,7 +353,16 @@ class RoomManager:
         self._check_winner_or_end_turn(room)
 
     def _check_winner_or_end_turn(self, room: Room) -> None:
-        winner = 2 if len(room.get_alive_pieces(1)) == 0 else 1 if len(room.get_alive_pieces(2)) == 0 else None
+        victory_target = int(room.parameters.get("victoryTarget", 12))
+        player1_captured = STARTING_PIECES_PER_PLAYER - len(room.get_alive_pieces(2))
+        player2_captured = STARTING_PIECES_PER_PLAYER - len(room.get_alive_pieces(1))
+        winner = None
+
+        if player1_captured >= victory_target or len(room.get_alive_pieces(2)) == 0:
+            winner = 1
+        elif player2_captured >= victory_target or len(room.get_alive_pieces(1)) == 0:
+            winner = 2
+
         if winner:
             room.phase = "game_over"
             room.winner = winner

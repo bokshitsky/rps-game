@@ -45,6 +45,7 @@ export interface RoomSnapshot {
   requiredPlayers: number;
   parameters: {
     preset: string;
+    victoryTarget: number;
   };
   canAct: boolean;
   counts: {

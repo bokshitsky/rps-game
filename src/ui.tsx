@@ -29,6 +29,7 @@ export interface AppShellState {
   rerollDisabled: boolean;
   showModal: boolean;
   presetValue: string;
+  victoryTarget: number;
   overlayTitle: string | null;
   overlayDescription: string | null;
   overlayPrimaryLabel: string | null;
@@ -40,6 +41,7 @@ export interface AppShellState {
   onReroll: () => void;
   onReady: () => void;
   onPresetChange: (value: string) => void;
+  onVictoryTargetChange: (value: number) => void;
   onCancelModal: () => void;
   onConfirmModal: () => void;
   onOverlayPrimary: () => void;
@@ -65,6 +67,7 @@ const defaultState: AppShellState = {
   rerollDisabled: false,
   showModal: false,
   presetValue: "standard",
+  victoryTarget: 12,
   overlayTitle: "Новая игра",
   overlayDescription: null,
   overlayPrimaryLabel: "Новая игра",
@@ -76,6 +79,7 @@ const defaultState: AppShellState = {
   onReroll: () => undefined,
   onReady: () => undefined,
   onPresetChange: () => undefined,
+  onVictoryTargetChange: () => undefined,
   onCancelModal: () => undefined,
   onConfirmModal: () => undefined,
   onOverlayPrimary: () => undefined,
@@ -218,6 +222,18 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
             >
               <option value="standard">Стандартная партия</option>
             </select>
+            <label htmlFor="victory-target-range">Сколько фигур нужно съесть для победы: {state.victoryTarget}</label>
+            <input
+              id="victory-target-range"
+              type="range"
+              min="1"
+              max="16"
+              step="1"
+              value={state.victoryTarget}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                state.onVictoryTargetChange(Number(event.target.value))
+              }
+            />
             <div className="modal-actions">
               <button
                 className="secondary"

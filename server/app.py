@@ -27,7 +27,12 @@ app.add_middleware(
 
 @app.post("/api/games")
 async def create_game(payload: CreateRoomRequest) -> dict[str, Any]:
-    room, player_id = manager.create_room({"preset": payload.preset})
+    room, player_id = manager.create_room(
+        {
+            "preset": payload.preset,
+            "victoryTarget": payload.victory_target,
+        }
+    )
     return {
         "roomId": room.room_id,
         "playerId": player_id,
