@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -43,6 +44,7 @@ class Room:
     player_tokens: dict[int, str] = field(default_factory=dict)
     sockets: dict[int, WebSocket] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    last_poll_at: float = field(default_factory=time.monotonic)
 
     def connected_players(self) -> int:
         return len(self.sockets)

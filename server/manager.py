@@ -3,12 +3,16 @@ from __future__ import annotations
 import json
 import random
 import secrets
+import time
 from typing import Any, Optional
 
 from fastapi import HTTPException, WebSocket
 
 from .constants import BOARD_COLS, PIECE_TYPES, TYPE_ORDER
 from .models import BattleState, Piece, Room
+
+
+ROOM_POLL_TIMEOUT_SECONDS = 20.0
 
 
 def compare_types(attacker: str, defender: str) -> str:
@@ -62,10 +66,14 @@ class RoomManager:
         return room, player_id
 
     def get_room(self, room_id: str) -> Room:
+        self._prune_expired_room(room_id)
         room = self.rooms.get(room_id)
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
         return room
+
+    def touch_poll(self, room: Room) -> None:
+        room.last_poll_at = time.monotonic()
 
     async def connect(self, room_id: str, websocket: WebSocket, token: Optional[str]) -> tuple[Room, int]:
         room = self.get_room(room_id)
@@ -137,6 +145,14 @@ class RoomManager:
                 return player_id
 
         raise HTTPException(status_code=403, detail="Room is full")
+
+    def _prune_expired_room(self, room_id: str) -> None:
+        room = self.rooms.get(room_id)
+        if not room:
+            return
+        if time.monotonic() - room.last_poll_at <= ROOM_POLL_TIMEOUT_SECONDS:
+            return
+        self.rooms.pop(room_id, None)
 
     def _start_setup(self, room: Room) -> None:
         room.phase = "setup"

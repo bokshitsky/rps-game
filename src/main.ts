@@ -20,6 +20,7 @@ let connectionError = "";
 let currentRoomId = getRoomIdFromUrl();
 let shareUrl = currentRoomId ? buildShareUrl(currentRoomId) : "";
 let socket: WebSocket | null = null;
+let pollingTimer: number | null = null;
 let isCreatingRoom = false;
 let isFetchingSnapshot = false;
 let localSelectedPieceId: string | null = null;
@@ -288,7 +289,26 @@ async function bootstrapRoom(roomId: string): Promise<void> {
     }
   }
 
+  startPolling(roomId);
   connectToRoom(roomId);
+}
+
+function stopPolling(): void {
+  if (pollingTimer !== null) {
+    window.clearInterval(pollingTimer);
+    pollingTimer = null;
+  }
+}
+
+function startPolling(roomId: string): void {
+  stopPolling();
+  pollingTimer = window.setInterval(() => {
+    if (currentRoomId !== roomId) {
+      stopPolling();
+      return;
+    }
+    void fetchSnapshot(roomId);
+  }, 2500);
 }
 
 function connectToRoom(roomId: string): void {
