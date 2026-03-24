@@ -10,7 +10,7 @@ COPY src ./src
 RUN npm run build
 
 
-FROM python:3.12-slim AS backend-builder
+FROM python:3.13-slim AS backend-builder
 
 ENV POETRY_VERSION=2.1.3 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
@@ -26,7 +26,7 @@ COPY pyproject.toml poetry.lock poetry.toml ./
 RUN poetry install --only main --no-root
 
 
-FROM python:3.12-slim AS runtime
+FROM python:3.13-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
