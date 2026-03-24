@@ -42,12 +42,21 @@ class Room:
     last_battle_summary: str = ""
     ready_players: dict[int, bool] = field(default_factory=dict)
     player_tokens: dict[int, str] = field(default_factory=dict)
+    player_last_seen_at: dict[int, float] = field(default_factory=dict)
     sockets: dict[int, WebSocket] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     last_poll_at: float = field(default_factory=time.monotonic)
 
     def connected_players(self) -> int:
         return len(self.sockets)
+
+    def active_players(self, timeout_seconds: float) -> int:
+        now = time.monotonic()
+        return sum(
+            1
+            for player_id in self.player_tokens
+            if now - self.player_last_seen_at.get(player_id, 0.0) <= timeout_seconds
+        )
 
     def registered_players(self) -> int:
         return len(self.player_tokens)
@@ -68,8 +77,8 @@ class Room:
     def get_alive_pieces(self, owner: int) -> list[Piece]:
         return [piece for piece in self.pieces if piece.alive and piece.owner == owner]
 
-    def can_act(self, player_id: int) -> bool:
-        if self.connected_players() < 2:
+    def can_act(self, player_id: int, presence_timeout_seconds: float) -> bool:
+        if self.active_players(presence_timeout_seconds) < 2:
             return False
         if self.phase == "turn":
             return self.current_player == player_id
@@ -79,7 +88,7 @@ class Room:
             return player_id in {self.battle.attacker_owner, self.battle.defender_owner} and player_id not in self.battle.locked_choices
         return False
 
-    def snapshot_for(self, player_id: int) -> dict[str, Any]:
+    def snapshot_for(self, player_id: int, presence_timeout_seconds: float) -> dict[str, Any]:
         visible_pieces = [
             {
                 "id": piece.id,
@@ -112,10 +121,10 @@ class Room:
             },
             "message": self.message,
             "lastBattleSummary": self.last_battle_summary,
-            "connectedPlayers": self.connected_players(),
+            "connectedPlayers": self.active_players(presence_timeout_seconds),
             "requiredPlayers": 2,
             "parameters": self.parameters,
-            "canAct": self.can_act(player_id),
+            "canAct": self.can_act(player_id, presence_timeout_seconds),
             "counts": {
                 "player1": len(self.get_alive_pieces(1)),
                 "player2": len(self.get_alive_pieces(2)),

@@ -18,6 +18,7 @@ function battleChoiceIcon(type: PieceType): string {
 export interface AppShellState {
   canCopyLink: boolean;
   copyLinkLabel: string;
+  showControls: boolean;
   showBattleChoices: boolean;
   showSetup: boolean;
   readyDisabled: boolean;
@@ -25,6 +26,10 @@ export interface AppShellState {
   rerollDisabled: boolean;
   showModal: boolean;
   presetValue: string;
+  overlayTitle: string | null;
+  overlayDescription: string | null;
+  overlayPrimaryLabel: string | null;
+  overlaySecondaryLabel: string | null;
   onStart: () => void;
   onCopyLink: () => void;
   onBattleChoice: (type: PieceType) => void;
@@ -33,6 +38,8 @@ export interface AppShellState {
   onPresetChange: (value: string) => void;
   onCancelModal: () => void;
   onConfirmModal: () => void;
+  onOverlayPrimary: () => void;
+  onOverlaySecondary: () => void;
 }
 
 export interface AppShellController {
@@ -43,6 +50,7 @@ export interface AppShellController {
 const defaultState: AppShellState = {
   canCopyLink: false,
   copyLinkLabel: "Копировать ссылку",
+  showControls: true,
   showBattleChoices: false,
   showSetup: false,
   readyDisabled: false,
@@ -50,6 +58,10 @@ const defaultState: AppShellState = {
   rerollDisabled: false,
   showModal: false,
   presetValue: "standard",
+  overlayTitle: "Новая игра",
+  overlayDescription: null,
+  overlayPrimaryLabel: "Новая игра",
+  overlaySecondaryLabel: null,
   onStart: () => undefined,
   onCopyLink: () => undefined,
   onBattleChoice: () => undefined,
@@ -58,6 +70,8 @@ const defaultState: AppShellState = {
   onPresetChange: () => undefined,
   onCancelModal: () => undefined,
   onConfirmModal: () => undefined,
+  onOverlayPrimary: () => undefined,
+  onOverlaySecondary: () => undefined,
 };
 
 function renderApp(
@@ -83,66 +97,92 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
 
   return (
     <div className="shell">
-      <div className="topbar">
-        <div className="actions">
-          <button onClick={state.onStart}>Новая игра</button>
-          <button
-            className="secondary"
-            onClick={state.onCopyLink}
-            disabled={!state.canCopyLink}
-          >
-            {state.copyLinkLabel}
-          </button>
-        </div>
-      </div>
+      <div className="shell-layout">
+        {state.showControls ? (
+          <div className="controls-dock">
+            <div className="actions">
+              <button onClick={state.onStart}>Новая игра</button>
+              <button
+                className="secondary"
+                onClick={state.onCopyLink}
+                disabled={!state.canCopyLink}
+              >
+                {state.copyLinkLabel}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
-      <div className="board-wrap">
-        <div
-          className="board-stage"
-          style={{ aspectRatio }}
-        >
+        <div className="board-wrap">
           <div
-            id="game-host"
-            ref={onGameHostRef}
-          />
+            className="board-stage"
+            style={{ aspectRatio }}
+          >
+            <div
+              id="game-host"
+              ref={onGameHostRef}
+            />
 
-          {state.showBattleChoices ? (
-            <div className="choice-row">
-              {pieceTypes.map((type) => (
-                <button
-                  key={type}
-                  onClick={() => state.onBattleChoice(type)}
-                  title={type}
-                  aria-label={type}
-                >
-                  <img
-                    src={battleChoiceIcon(type)}
-                    alt={type}
-                  />
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {state.showSetup ? (
-            <div className="setup-panel">
-              <div className="setup-actions">
-                <button
-                  onClick={state.onReady}
-                  disabled={state.readyDisabled}
-                >
-                  {state.readyLabel}
-                </button>
-                <button
-                  className="secondary"
-                  onClick={state.onReroll}
-                  disabled={state.rerollDisabled}
-                >
-                  Пересбросить
-                </button>
+            {state.overlayTitle ? (
+              <div className="overlay-panel">
+                <div className="overlay-card">
+                  <h2>{state.overlayTitle}</h2>
+                  {state.overlayDescription ? <p>{state.overlayDescription}</p> : null}
+                  <div className="overlay-actions">
+                    {state.overlayPrimaryLabel ? (
+                      <button onClick={state.onOverlayPrimary}>{state.overlayPrimaryLabel}</button>
+                    ) : null}
+                    {state.overlaySecondaryLabel ? (
+                      <button
+                        className="secondary"
+                        onClick={state.onOverlaySecondary}
+                      >
+                        {state.overlaySecondaryLabel}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+
+            {state.showBattleChoices ? (
+              <div className="choice-row">
+                {pieceTypes.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => state.onBattleChoice(type)}
+                    title={type}
+                    aria-label={type}
+                  >
+                    <img
+                      src={battleChoiceIcon(type)}
+                      alt={type}
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {state.showSetup ? (
+              <div className="setup-panel">
+                <div className="setup-actions">
+                  <button
+                    onClick={state.onReady}
+                    disabled={state.readyDisabled}
+                  >
+                    {state.readyLabel}
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={state.onReroll}
+                    disabled={state.rerollDisabled}
+                  >
+                    Пересбросить
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 

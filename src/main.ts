@@ -390,18 +390,76 @@ function syncUi(): void {
     return;
   }
 
-  const showChoices = roomSnapshot?.phase === "battle_pick" && roomSnapshot.canAct;
-  const showSetup = roomSnapshot?.phase === "setup" && roomSnapshot.connectedPlayers === roomSnapshot.requiredPlayers;
+  const snapshot = roomSnapshot;
+  const showChoices = snapshot?.phase === "battle_pick" && snapshot.canAct;
+  const showSetup = snapshot?.phase === "setup" && snapshot.connectedPlayers === snapshot.requiredPlayers;
+  const isWaitingForOpponent = snapshot?.phase === "waiting";
+  const isGameOver = snapshot?.phase === "game_over";
+  const isOpponentDisconnected = snapshot
+    ? snapshot.phase !== "waiting" &&
+      snapshot.phase !== "game_over" &&
+      snapshot.connectedPlayers < snapshot.requiredPlayers
+    : false;
+  const didYouWin = isGameOver && snapshot?.winner === snapshot?.yourPlayerId;
+
+  let overlayTitle: string | null = null;
+  let overlayDescription: string | null = null;
+  let overlayPrimaryLabel: string | null = null;
+  let overlaySecondaryLabel: string | null = null;
+  let onOverlayPrimary: () => void = () => undefined;
+  let onOverlaySecondary: () => void = () => undefined;
+
+  if (!currentRoomId) {
+    overlayTitle = "Новая игра";
+    overlayPrimaryLabel = "Новая игра";
+    onOverlayPrimary = () => showConfigModal(true);
+  } else if (!roomSnapshot && connectionState === "connecting") {
+    overlayTitle = "Подключаемся";
+    overlayDescription = "Проверяем комнату и загружаем состояние партии.";
+  } else if (!roomSnapshot && connectionState === "error") {
+    overlayTitle = "Комната недоступна";
+    overlayPrimaryLabel = "Новая игра";
+    onOverlayPrimary = () => showConfigModal(true);
+  } else if (isWaitingForOpponent) {
+    overlayTitle = "Ждем подключения соперника";
+    overlayDescription = "Отправьте ссылку второму игроку, и партия стартует сразу после подключения.";
+    overlayPrimaryLabel = copyLinkLabel;
+    overlaySecondaryLabel = "Новая игра";
+    onOverlayPrimary = () => {
+      void copyInviteLink();
+    };
+    onOverlaySecondary = () => showConfigModal(true);
+  } else if (isOpponentDisconnected) {
+    overlayTitle = "Соперник отключился";
+    overlayDescription = "Если его клиент не присылает обновления больше 5 секунд, игра ставится на паузу до переподключения.";
+    overlayPrimaryLabel = copyLinkLabel;
+    overlaySecondaryLabel = "Новая игра";
+    onOverlayPrimary = () => {
+      void copyInviteLink();
+    };
+    onOverlaySecondary = () => showConfigModal(true);
+  } else if (isGameOver) {
+    overlayTitle = didYouWin ? "Вы победили" : "Вы проиграли";
+    overlayDescription = didYouWin ? "Партия завершена в вашу пользу." : "Соперник захватил поле.";
+    overlayPrimaryLabel = "Начать заново";
+    onOverlayPrimary = () => showConfigModal(true);
+  }
+
   const nextState: AppShellState = {
     canCopyLink: Boolean(shareUrl),
     copyLinkLabel,
+    showControls: snapshot?.phase === "turn" || snapshot?.phase === "battle_pick" || isOpponentDisconnected,
     showBattleChoices: showChoices,
     showSetup,
-    readyDisabled: Boolean(showSetup && roomSnapshot?.setup.yourReady),
-    readyLabel: showSetup && roomSnapshot?.setup.yourReady ? "Готово" : "Готов",
+    readyDisabled: Boolean(showSetup && snapshot?.setup.yourReady),
+    readyLabel: showSetup && snapshot?.setup.yourReady ? "Готово" : "Готов",
     rerollDisabled: false,
     showModal: isConfigModalOpen,
     presetValue,
+    overlayTitle,
+    overlayDescription,
+    overlayPrimaryLabel,
+    overlaySecondaryLabel,
     onStart: () => showConfigModal(true),
     onCopyLink: () => {
       void copyInviteLink();
@@ -417,6 +475,8 @@ function syncUi(): void {
     onConfirmModal: () => {
       void createRoom();
     },
+    onOverlayPrimary,
+    onOverlaySecondary,
   };
 
   ui.update(nextState);

@@ -13,6 +13,7 @@ from .models import BattleState, Piece, Room
 
 
 ROOM_POLL_TIMEOUT_SECONDS = 20.0
+PLAYER_PRESENCE_TIMEOUT_SECONDS = 5.0
 
 
 def compare_types(attacker: str, defender: str) -> str:
@@ -62,6 +63,7 @@ class RoomManager:
         room = Room(room_id=room_id, parameters=parameters)
         player_id = 1
         room.player_tokens[player_id] = secrets.token_urlsafe(16)
+        room.player_last_seen_at[player_id] = time.monotonic()
         self.rooms[room_id] = room
         return room, player_id
 
@@ -75,24 +77,28 @@ class RoomManager:
     def touch_poll(self, room: Room) -> None:
         room.last_poll_at = time.monotonic()
 
+    def touch_player(self, room: Room, player_id: int) -> None:
+        room.player_last_seen_at[player_id] = time.monotonic()
+        self._refresh_presence_message(room)
+
     async def connect(self, room_id: str, websocket: WebSocket, token: Optional[str]) -> tuple[Room, int]:
         room = self.get_room(room_id)
         async with room.lock:
             player_id = self._resolve_player(room, token)
             await websocket.accept()
             room.sockets[player_id] = websocket
+            room.player_last_seen_at[player_id] = time.monotonic()
 
             if room.registered_players() == 2 and room.phase == "waiting":
                 self._start_setup(room)
-            elif room.phase != "waiting" and room.connected_players() < 2:
-                room.message = "Противник отключился. Ждем переподключения."
+            else:
+                self._refresh_presence_message(room)
 
             return room, player_id
 
     def disconnect(self, room: Room, player_id: int) -> None:
         room.sockets.pop(player_id, None)
-        if room.phase in {"turn", "battle_pick"} and room.connected_players() < 2:
-            room.message = "Противник отключился. Ждем переподключения."
+        self._refresh_presence_message(room)
 
     async def handle_action(self, room: Room, player_id: int, payload: dict[str, Any]) -> None:
         async with room.lock:
@@ -142,6 +148,7 @@ class RoomManager:
         for player_id in (1, 2):
             if player_id not in room.player_tokens:
                 room.player_tokens[player_id] = secrets.token_urlsafe(16)
+                room.player_last_seen_at[player_id] = time.monotonic()
                 return player_id
 
         raise HTTPException(status_code=403, detail="Room is full")
@@ -170,6 +177,27 @@ class RoomManager:
         room.current_player = 1
         room.turn_count = 1
         room.message = ""
+
+    def _refresh_presence_message(self, room: Room) -> None:
+        active_players = room.active_players(PLAYER_PRESENCE_TIMEOUT_SECONDS)
+        if room.phase == "waiting":
+            room.message = "Ждем второго игрока по ссылке."
+            return
+        if room.phase == "game_over":
+            return
+        if active_players < 2:
+            room.message = "Противник отключился. Ждем переподключения."
+            return
+        if room.phase == "setup":
+            if room.ready_players.get(1) and room.ready_players.get(2):
+                room.message = ""
+            elif room.ready_players.get(1) or room.ready_players.get(2):
+                room.message = "Ждем подтверждение соперника."
+            else:
+                room.message = "Оба игрока подключились. Пересбросьте расстановку при желании и нажмите «Готов»."
+            return
+        if room.message == "Противник отключился. Ждем переподключения.":
+            room.message = ""
 
     def _replace_player_pieces(self, room: Room, player_id: int) -> None:
         other_pieces = [piece for piece in room.pieces if piece.owner != player_id]

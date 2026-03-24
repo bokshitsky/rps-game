@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .manager import RoomManager
+from .manager import PLAYER_PRESENCE_TIMEOUT_SECONDS, RoomManager
 from .models import Room
 from .schemas import CreateRoomRequest, RoomActionRequest
 
@@ -41,7 +41,8 @@ async def get_game_state(room_id: str, token: Optional[str] = Query(default=None
     room = manager.get_room(room_id)
     player_id = manager.resolve_player(room, token)
     manager.touch_poll(room)
-    return room.snapshot_for(player_id)
+    manager.touch_player(room, player_id)
+    return room.snapshot_for(player_id, PLAYER_PRESENCE_TIMEOUT_SECONDS)
 
 
 @app.post("/api/games/{room_id}/actions")
@@ -52,6 +53,7 @@ async def post_game_action(
 ) -> dict[str, Any]:
     room = manager.get_room(room_id)
     player_id = manager.resolve_player(room, token)
+    manager.touch_player(room, player_id)
     await manager.handle_action(room, player_id, payload.model_dump())
     await manager.notify_refresh(room)
     return {"ok": True}

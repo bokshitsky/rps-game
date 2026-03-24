@@ -11,7 +11,64 @@ import {
   playerColors,
 } from "./constants";
 import { mixColor } from "./utils";
-import type { KnownType, PlayerId, RoomSnapshot } from "./types";
+import type { KnownType, PlayerId, RoomSnapshot, VisiblePiece } from "./types";
+
+const previewTypesTop: KnownType[] = [
+  "rock",
+  "paper",
+  "scissors",
+  "rock",
+  "paper",
+  "scissors",
+  "rock",
+  "paper",
+  "scissors",
+  "rock",
+  "paper",
+  "scissors",
+  "rock",
+  "paper",
+  "scissors",
+  "rock",
+];
+
+const previewTypesBottom: KnownType[] = [
+  "scissors",
+  "paper",
+  "rock",
+  "scissors",
+  "paper",
+  "rock",
+  "scissors",
+  "paper",
+  "rock",
+  "scissors",
+  "paper",
+  "rock",
+  "scissors",
+  "paper",
+  "rock",
+  "paper",
+];
+
+const previewPieces: VisiblePiece[] = [
+  ...buildPreviewPieces(2, previewTypesTop, [0, 1]),
+  ...buildPreviewPieces(1, previewTypesBottom, [5, 4]),
+];
+
+function buildPreviewPieces(
+  owner: PlayerId,
+  types: KnownType[],
+  rows: [number, number],
+): VisiblePiece[] {
+  return types.map((knownType, index) => ({
+    id: `preview-${owner}-${index}`,
+    owner,
+    knownType,
+    col: index % boardCols,
+    row: rows[Math.floor(index / boardCols)],
+  }));
+}
 
 export interface BoardSceneDeps {
   getSnapshot: () => RoomSnapshot | null;
@@ -110,8 +167,7 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
     }
 
     private drawPieces(): void {
-      const snapshot = deps.getSnapshot();
-      for (const piece of snapshot?.visiblePieces ?? []) {
+      for (const piece of this.getRenderablePieces()) {
         const display = this.toDisplayCoords(piece.col, piece.row);
         const centerX = display.col * cellSize + cellSize / 2;
         const centerY = display.row * cellSize + cellSize / 2;
@@ -124,6 +180,14 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
             .setScale(3.25),
         );
       }
+    }
+
+    private getRenderablePieces(): VisiblePiece[] {
+      const snapshot = deps.getSnapshot();
+      if (!snapshot || snapshot.visiblePieces.length === 0) {
+        return previewPieces;
+      }
+      return snapshot.visiblePieces;
     }
 
     private shouldMirrorBoard(): boolean {
