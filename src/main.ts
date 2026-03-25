@@ -546,6 +546,7 @@ function syncUi(): void {
     showModal: isConfigModalOpen,
     presetValue,
     victoryTarget,
+    choicePlayerId: snapshot?.yourPlayerId ?? 1,
     overlayTitle,
     overlayDescription,
     overlayPrimaryLabel,

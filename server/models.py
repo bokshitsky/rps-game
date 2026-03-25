@@ -16,6 +16,7 @@ class Piece:
     col: int
     row: int
     alive: bool = True
+    revealed_until_turn: int = 0
 
 
 @dataclass
@@ -101,7 +102,13 @@ class Room:
                 "owner": piece.owner,
                 "col": piece.col,
                 "row": piece.row,
-                "knownType": piece.type if piece.owner == player_id or self.phase == "game_over" else "hidden",
+                "knownType": (
+                    piece.type
+                    if piece.owner == player_id
+                    or self.phase == "game_over"
+                    or self.turn_count <= piece.revealed_until_turn
+                    else "hidden"
+                ),
             }
             for piece in self.pieces
             if piece.alive

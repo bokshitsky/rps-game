@@ -296,6 +296,7 @@ class RoomManager:
             defender.alive = False
             attacker.col = defender.col
             attacker.row = defender.row
+            self._reveal_piece(room, attacker)
             room.last_battle_summary = (
                 f"Игрок {attacker.owner}: {attacker.type} побеждает {defender.type}."
             )
@@ -303,9 +304,8 @@ class RoomManager:
             return
 
         if result == "defender":
-            defender.col = attacker.col
-            defender.row = attacker.row
             attacker.alive = False
+            self._reveal_piece(room, defender)
             room.last_battle_summary = (
                 f"Игрок {defender.owner}: {defender.type} побеждает {attacker.type}."
             )
@@ -355,13 +355,16 @@ class RoomManager:
             defender.alive = False
             attacker.col = defender.col
             attacker.row = defender.row
+            self._reveal_piece(room, attacker)
             room.last_battle_summary = f"После переопределения типов игрок {attacker.owner} победил."
         else:
-            defender.col = attacker.col
-            defender.row = attacker.row
             attacker.alive = False
+            self._reveal_piece(room, defender)
             room.last_battle_summary = f"После переопределения типов игрок {defender.owner} победил."
         self._check_winner_or_end_turn(room)
+
+    def _reveal_piece(self, room: Room, piece: Piece) -> None:
+        piece.revealed_until_turn = max(piece.revealed_until_turn, room.turn_count + 2)
 
     def _check_winner_or_end_turn(self, room: Room) -> None:
         victory_target = int(room.parameters.get("victoryTarget", 12))
