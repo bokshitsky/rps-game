@@ -177,7 +177,7 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
           this.add
             .image(centerX, centerY + 4, textureKey)
             .setOrigin(0.5, 0.5)
-            .setScale(3.25),
+            .setScale(2.2),
         );
       }
     }
@@ -231,8 +231,8 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
           }
 
           const canvas = document.createElement("canvas");
-          canvas.width = 32;
-          canvas.height = 32;
+          canvas.width = 48;
+          canvas.height = 48;
           const ctx = canvas.getContext("2d");
           if (!ctx) {
             continue;
@@ -247,99 +247,101 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
 
     private paintPieceSprite(ctx: CanvasRenderingContext2D, player: PlayerId, type: KnownType): void {
       const base = playerColors[player];
-      const darkCloth = mixColor(base, 0x000000, 0.34);
-      const lightCloth = mixColor(base, 0xffffff, 0.18);
-      const skin = player === 1 ? "#f7d4a4" : "#f3d9a8";
+      const accent = `#${base.toString(16).padStart(6, "0")}`;
+      const lightAccent = mixColor(base, 0xffffff, 0.22);
       const outline = "#2c2f38";
-      const hair = player === 1 ? "#b93e19" : "#1046b5";
       const shadow = "rgba(0,0,0,0.18)";
+      const metal = "#c5ccd6";
+      const gold = "#f2be39";
+      const goldLight = "#ffe28a";
 
       const px = (x: number, y: number, w = 1, h = 1, color = outline): void => {
         ctx.fillStyle = color;
         ctx.fillRect(x, y, w, h);
       };
 
-      px(7, 25, 18, 4, shadow);
-      px(9, 23, 14, 2, shadow);
+      px(10, 38, 28, 5, shadow);
+      px(14, 35, 20, 3, shadow);
 
-      if (type !== "hidden") {
-        if (type === "rock") {
-          px(20, 13, 7, 8, "#8e949d");
-          px(19, 14, 9, 6, "#aab1bb");
-          px(21, 15, 5, 2, "#d4dae2");
-          px(20, 13, 7, 8, outline);
-        } else if (type === "paper") {
-          px(19, 12, 7, 10, "#ffffff");
-          px(20, 13, 7, 10, "#f9fafb");
-          px(19, 12, 1, 10, outline);
-          px(20, 12, 6, 1, outline);
-          px(26, 13, 1, 9, outline);
-          px(20, 22, 7, 1, outline);
-          px(22, 14, 3, 6, "#d7dbe2");
-        } else if (type === "scissors") {
-          px(17, 12, 4, 4, "#ffc234");
-          px(23, 12, 4, 4, "#ffc234");
-          px(18, 13, 2, 2, outline);
-          px(24, 13, 2, 2, outline);
-          px(20, 16, 2, 2, "#c2c8d0");
-          px(22, 16, 2, 2, "#c2c8d0");
-          px(21, 18, 2, 2, "#c2c8d0");
-          px(19, 20, 2, 2, "#c2c8d0");
-          px(23, 20, 2, 2, "#c2c8d0");
-          px(18, 22, 2, 2, "#c2c8d0");
-          px(24, 22, 2, 2, "#c2c8d0");
-          px(20, 17, 1, 7, outline);
-          px(24, 17, 1, 7, outline);
-          px(20, 18, 3, 1, outline);
-          px(21, 20, 3, 1, outline);
-          px(19, 22, 3, 1, outline);
-          px(23, 22, 3, 1, outline);
-        }
+      if (type === "rock") {
+        px(11, 17, 26, 14, "#818a95");
+        px(9, 20, 30, 11, "#97a0ac");
+        px(14, 14, 20, 8, "#adb6c2");
+        px(19, 19, 10, 4, "#d7dde4");
+        px(9, 20, 2, 11, outline);
+        px(37, 20, 2, 11, outline);
+        px(14, 14, 20, 2, outline);
+        px(11, 30, 26, 2, outline);
+        return;
       }
 
-      px(10, 18, 10, 7, darkCloth);
-      px(9, 19, 12, 5, darkCloth);
-      px(11, 17, 8, 1, lightCloth);
-      px(8, 18, 2, 4, darkCloth);
-      px(20, 18, 2, 4, darkCloth);
-      px(9, 17, 1, 6, outline);
-      px(20, 17, 1, 6, outline);
-      px(10, 25, 4, 4, darkCloth);
-      px(16, 25, 4, 4, darkCloth);
+      if (type === "paper") {
+        px(13, 9, 18, 24, "#fffdf7");
+        px(15, 11, 18, 24, "#f4f6fa");
+        px(24, 9, 9, 9, lightAccent);
+        px(13, 9, 2, 24, outline);
+        px(13, 9, 18, 2, outline);
+        px(31, 11, 2, 22, outline);
+        px(15, 33, 18, 2, outline);
+        px(18, 16, 11, 2, "#d1d7e0");
+        px(18, 21, 11, 2, "#d1d7e0");
+        px(18, 26, 8, 2, "#d1d7e0");
+        return;
+      }
 
-      px(10, 5, 10, 10, skin);
-      px(9, 6, 12, 9, skin);
+      if (type === "scissors") {
+        px(8, 12, 9, 9, accent);
+        px(31, 12, 9, 9, accent);
+        px(11, 15, 3, 3, lightAccent);
+        px(34, 15, 3, 3, lightAccent);
+        px(16, 20, 7, 4, metal);
+        px(25, 20, 7, 4, metal);
+        px(21, 23, 6, 3, metal);
+        px(18, 25, 3, 12, metal);
+        px(27, 25, 3, 12, metal);
+        px(14, 33, 6, 3, metal);
+        px(28, 33, 6, 3, metal);
+        px(8, 12, 2, 9, outline);
+        px(15, 12, 2, 9, outline);
+        px(31, 12, 2, 9, outline);
+        px(38, 12, 2, 9, outline);
+        px(16, 20, 2, 6, outline);
+        px(30, 20, 2, 6, outline);
+        px(20, 23, 2, 14, outline);
+        px(27, 23, 2, 14, outline);
+        px(14, 34, 6, 2, outline);
+        px(28, 34, 6, 2, outline);
+        return;
+      }
+
       if (type === "king") {
-        px(11, 3, 8, 2, "#f2be39");
-        px(10, 4, 2, 4, "#f2be39");
-        px(18, 4, 2, 4, "#f2be39");
-        px(12, 2, 2, 2, "#f6d56d");
-        px(15, 1, 2, 3, "#ffe28a");
-        px(17, 2, 2, 2, "#f6d56d");
-        px(11, 3, 8, 1, outline);
-        px(10, 4, 1, 4, outline);
-        px(19, 4, 1, 4, outline);
-        px(11, 8, 8, 1, outline);
-        px(12, 4, 1, 1, outline);
-        px(16, 3, 1, 1, outline);
-        px(18, 4, 1, 1, outline);
-        px(10, 7, 10, 1, hair);
-      } else {
-        px(10, 4, 10, 2, hair);
-        px(12, 1, 6, 4, hair);
-        px(11, 5, 8, 1, mixColor(base, 0xffffff, 0.12));
-      }
-      px(9, 6, 1, 9, outline);
-      px(20, 6, 1, 9, outline);
-      px(10, 15, 10, 1, outline);
-      if (type !== "king") {
-        px(10, 4, 10, 1, outline);
+        px(12, 16, 24, 6, gold);
+        px(10, 22, 28, 12, gold);
+        px(14, 33, 20, 5, "#deab2a");
+        px(12, 10, 5, 12, goldLight);
+        px(21, 6, 6, 16, goldLight);
+        px(31, 10, 5, 12, goldLight);
+        px(16, 16, 2, 2, accent);
+        px(23, 12, 2, 2, accent);
+        px(30, 16, 2, 2, accent);
+        px(10, 22, 2, 12, outline);
+        px(36, 22, 2, 12, outline);
+        px(12, 16, 24, 2, outline);
+        px(14, 36, 20, 2, outline);
+        return;
       }
 
-      px(12, 9, 2, 1, outline);
-      px(16, 9, 2, 1, outline);
-      px(13, 12, 4, 1, "#d87055");
-      px(14, 10, 2, 1, "#f1ad6d");
+      px(12, 10, 24, 24, mixColor(base, 0x000000, 0.18));
+      px(10, 12, 28, 20, accent);
+      px(14, 14, 20, 16, mixColor(base, 0xffffff, 0.12));
+      px(19, 14, 10, 4, outline);
+      px(21, 18, 6, 3, outline);
+      px(21, 27, 6, 2, outline);
+      px(19, 30, 4, 4, outline);
+      px(11, 12, 2, 20, outline);
+      px(35, 12, 2, 20, outline);
+      px(12, 10, 24, 2, outline);
+      px(12, 33, 24, 2, outline);
     }
   };
 }
