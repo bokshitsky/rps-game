@@ -264,10 +264,10 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
       px(14, 35, 20, 3, shadow);
 
       if (type === "rock") {
-        px(11, 17, 26, 14, "#818a95");
-        px(9, 20, 30, 11, "#97a0ac");
-        px(14, 14, 20, 8, "#adb6c2");
-        px(19, 19, 10, 4, "#d7dde4");
+        px(11, 17, 26, 14, mixColor(base, 0x6d7682, 0.35));
+        px(9, 20, 30, 11, mixColor(base, 0x8d97a5, 0.28));
+        px(14, 14, 20, 8, mixColor(base, 0xaeb7c4, 0.2));
+        px(19, 19, 10, 4, mixColor(base, 0xd7dde4, 0.1));
         px(9, 20, 2, 11, outline);
         px(37, 20, 2, 11, outline);
         px(14, 14, 20, 2, outline);

@@ -12,12 +12,6 @@ export const boardDark = 0xabca1a;
 
 export const pieceTypes: PieceType[] = ["rock", "paper", "scissors"];
 
-export const typeLabels: Record<PieceType, string> = {
-  rock: "Камень",
-  paper: "Бумага",
-  scissors: "Ножницы",
-};
-
 export const playerColors: Record<PlayerId, number> = {
   1: 0xe25a2c,
   2: 0x2f6bff,
