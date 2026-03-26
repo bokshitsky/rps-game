@@ -16,7 +16,7 @@ class Piece:
     col: int
     row: int
     alive: bool = True
-    revealed_until_turn: int = 0
+    revealed_until_turn: int = -1
 
 
 @dataclass
