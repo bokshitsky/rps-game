@@ -16,6 +16,7 @@ export interface AppShellState {
   restartButtonDisabled: boolean;
   showBattleChoices: boolean;
   showSetup: boolean;
+  setupStatusLabel: string | null;
   readyDisabled: boolean;
   readyLabel: string;
   rerollDisabled: boolean;
@@ -58,14 +59,15 @@ const defaultState: AppShellState = {
   restartButtonDisabled: false,
   showBattleChoices: false,
   showSetup: false,
+  setupStatusLabel: null,
   readyDisabled: false,
-  readyLabel: "Готов",
+  readyLabel: "Начать игру",
   rerollDisabled: false,
   showModal: false,
   presetValue: "standard",
   victoryTarget: 12,
   choicePlayerId: 1,
-  overlayTitle: "Новая игра",
+  overlayTitle: "Бокшахматы",
   overlayDescription: null,
   overlayPrimaryLabel: "Начать",
   overlaySecondaryLabel: null,
@@ -105,6 +107,10 @@ interface AppShellProps {
 
 function AppShell({ state, onGameHostRef }: AppShellProps) {
   const aspectRatio = `${canvasWidth} / ${canvasHeight}`;
+  const modeDescription =
+    state.presetValue === "king"
+      ? "Цель игры: съесть фигуру короля соперника."
+      : "Цель игры: съесть нужное число фигур соперника.";
 
   return (
     <div className="shell">
@@ -197,6 +203,9 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
 
             {state.showSetup ? (
               <div className="setup-panel">
+                {state.setupStatusLabel ? (
+                  <div className="setup-status">{state.setupStatusLabel}</div>
+                ) : null}
                 <div className="setup-actions">
                   <button
                     onClick={state.onReady}
@@ -209,7 +218,7 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
                     onClick={state.onReroll}
                     disabled={state.rerollDisabled}
                   >
-                    Пересбросить
+                    Поменять расстановку
                   </button>
                 </div>
               </div>
@@ -235,6 +244,7 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
                   <option value="standard">Стандартная партия</option>
                   <option value="king">Режим с королем</option>
                 </select>
+                <p className="modal-hint">{modeDescription}</p>
               </div>
               <div className="modal-field">
                 <label htmlFor="victory-target-range">

@@ -203,6 +203,13 @@ button:disabled {
   min-width: 260px;
 }
 
+.setup-status {
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: 15px;
+  color: rgba(19, 33, 47, 0.78);
+}
+
 .setup-actions {
   display: flex;
   gap: 10px;
@@ -268,6 +275,13 @@ button:disabled {
 
 .modal p {
   margin: 0 0 16px;
+  color: #516171;
+}
+
+.modal-hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
   color: #516171;
 }
 

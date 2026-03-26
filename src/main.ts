@@ -495,6 +495,13 @@ function syncUi(): void {
       snapshot.connectedPlayers < snapshot.requiredPlayers
     : false;
   const didYouWin = isGameOver && snapshot?.winner === snapshot?.yourPlayerId;
+  const setupStatusLabel = showSetup
+    ? snapshot?.setup.yourReady
+      ? "Ждем соперника"
+      : snapshot?.setup.opponentReady
+        ? "Соперник готов"
+        : "Соперник подключился"
+    : null;
 
   let overlayTitle: string | null = null;
   let overlayDescription: string | null = null;
@@ -504,8 +511,8 @@ function syncUi(): void {
   let onOverlaySecondary: () => void = () => undefined;
 
   if (!currentRoomId) {
-    overlayTitle = "Новая игра";
-    overlayPrimaryLabel = "Новая игра";
+    overlayTitle = "Бокшахматы";
+    overlayPrimaryLabel = "Начать";
     onOverlayPrimary = () => showConfigModal(true);
   } else if (!roomSnapshot && connectionState === "connecting") {
     overlayTitle = "Подключаемся";
@@ -544,7 +551,7 @@ function syncUi(): void {
     overlayDescription = "Если соперник согласится, вы оба вернетесь к экрану стартовой расстановки.";
   } else if (isGameOver) {
     overlayTitle = didYouWin ? "Вы победили" : "Вы проиграли";
-    overlayDescription = didYouWin ? "Партия завершена в вашу пользу." : "Соперник захватил поле.";
+    overlayDescription = null;
     overlayPrimaryLabel = "Начать сначала";
     overlaySecondaryLabel = "Новая игра";
     onOverlayPrimary = () => requestRestart();
@@ -565,8 +572,9 @@ function syncUi(): void {
       isRestartAwaitingYourDecision,
     showBattleChoices: showChoices,
     showSetup,
+    setupStatusLabel,
     readyDisabled: Boolean(showSetup && snapshot?.setup.yourReady),
-    readyLabel: showSetup && snapshot?.setup.yourReady ? "Готово" : "Готов",
+    readyLabel: "Начать игру",
     rerollDisabled: false,
     showModal: isConfigModalOpen,
     presetValue,
