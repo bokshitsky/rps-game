@@ -15,7 +15,9 @@ if (!app) {
 
 const appRoot = app;
 
-let boardScene: { renderState: () => void } | null = null;
+type SnapshotSource = "bootstrap" | "poll" | "action" | "socket";
+
+let boardScene: { renderState: (animate?: boolean) => void } | null = null;
 let roomSnapshot: RoomSnapshot | null = null;
 let connectionState: "idle" | "connecting" | "connected" | "error" = "idle";
 let currentRoomId = getRoomIdFromUrl();
@@ -24,6 +26,7 @@ let socket: WebSocket | null = null;
 let pollingTimer: number | null = null;
 let isCreatingRoom = false;
 let isFetchingSnapshot = false;
+let queuedSnapshotSource: SnapshotSource | null = null;
 let localSelectedPieceId: string | null = null;
 let copyLinkLabel = "Копировать ссылку";
 let isConfigModalOpen = false;
@@ -209,8 +212,25 @@ function tokenQuery(roomId: string): string {
   return token ? `?token=${encodeURIComponent(token)}` : "";
 }
 
-async function fetchSnapshot(roomId: string): Promise<void> {
+function mergeSnapshotSource(
+  current: SnapshotSource | null,
+  next: SnapshotSource,
+): SnapshotSource {
+  if (current === "socket" || next === "socket") {
+    return "socket";
+  }
+  if (current === "action" || next === "action") {
+    return "action";
+  }
+  if (current === "bootstrap" || next === "bootstrap") {
+    return "bootstrap";
+  }
+  return "poll";
+}
+
+async function fetchSnapshot(roomId: string, source: SnapshotSource = "poll"): Promise<void> {
   if (isFetchingSnapshot) {
+    queuedSnapshotSource = mergeSnapshotSource(queuedSnapshotSource, source);
     return;
   }
 
@@ -230,14 +250,19 @@ async function fetchSnapshot(roomId: string): Promise<void> {
       connectionState = socket ? "connected" : "idle";
     }
     syncUi();
-    requestRender();
+    requestRender(source === "socket");
   } catch (error) {
     connectionState = "error";
     syncUi();
-    requestRender();
+    requestRender(false);
     console.error(error);
   } finally {
     isFetchingSnapshot = false;
+    if (queuedSnapshotSource) {
+      const nextSource = queuedSnapshotSource;
+      queuedSnapshotSource = null;
+      void fetchSnapshot(roomId, nextSource);
+    }
   }
 }
 
@@ -247,7 +272,7 @@ async function bootstrapRoom(roomId: string): Promise<void> {
   requestRender();
 
   if (!loadPlayerToken(roomId)) {
-    await fetchSnapshot(roomId);
+    await fetchSnapshot(roomId, "bootstrap");
     if (!loadPlayerToken(roomId)) {
       return;
     }
@@ -271,7 +296,7 @@ function startPolling(roomId: string): void {
       stopPolling();
       return;
     }
-    void fetchSnapshot(roomId);
+    void fetchSnapshot(roomId, "poll");
   }, 2500);
 }
 
@@ -292,9 +317,9 @@ function connectToRoom(roomId: string): void {
       return;
     }
     connectionState = "connected";
-    void fetchSnapshot(roomId);
+    void fetchSnapshot(roomId, "bootstrap");
     syncUi();
-    requestRender();
+    requestRender(false);
   });
 
   nextSocket.addEventListener("message", (event) => {
@@ -311,7 +336,7 @@ function connectToRoom(roomId: string): void {
       return;
     }
 
-    void fetchSnapshot(roomId);
+    void fetchSnapshot(roomId, "socket");
   });
 
   nextSocket.addEventListener("close", () => {
@@ -326,7 +351,7 @@ function connectToRoom(roomId: string): void {
       connectionState = "idle";
     }
     syncUi();
-    requestRender();
+    requestRender(false);
   });
 }
 
@@ -345,7 +370,7 @@ async function postAction(payload: Record<string, unknown>): Promise<void> {
     throw new Error(`action failed: ${response.status}`);
   }
 
-  await fetchSnapshot(currentRoomId);
+  await fetchSnapshot(currentRoomId, "action");
 
   if (payload.type === "move_piece") {
     playSound("move");
@@ -581,8 +606,8 @@ function syncUi(): void {
   ui.update(nextState);
 }
 
-function requestRender(): void {
-  boardScene?.renderState();
+function requestRender(animate = false): void {
+  boardScene?.renderState(animate);
 }
 
 function renderGameToText(): string {
@@ -705,7 +730,7 @@ async function initialize(): Promise<void> {
       showConfigModal(false);
     }
   });
-  window.addEventListener("resize", requestRender);
+  window.addEventListener("resize", () => requestRender(false));
 
   window.render_game_to_text = renderGameToText;
   window.advanceTime = (_ms: number) => {

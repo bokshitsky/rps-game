@@ -14,9 +14,32 @@ export interface VisiblePiece {
 }
 
 export interface BattleState {
+  attackerId: string | null;
+  defenderId: string | null;
+  attackerType: PieceKind | null;
+  defenderType: PieceKind | null;
   round: number;
   yourLocked: boolean;
   opponentLocked: boolean;
+}
+
+export interface AnimationHint {
+  id: number;
+  kind: "move" | "attack";
+  pieceId?: string;
+  fromCol?: number;
+  fromRow?: number;
+  toCol?: number;
+  toRow?: number;
+  attackerId?: string;
+  defenderId?: string;
+  attackerType?: PieceKind;
+  defenderType?: PieceKind;
+  attackerFromCol?: number;
+  attackerFromRow?: number;
+  defenderFromCol?: number;
+  defenderFromRow?: number;
+  winnerId?: string | null;
 }
 
 export interface SetupState {
@@ -40,6 +63,7 @@ export interface RoomSnapshot {
   setup: SetupState;
   battle: BattleState | null;
   restart: RestartState | null;
+  animationHint: AnimationHint | null;
   message: string;
   lastBattleSummary: string;
   connectedPlayers: number;

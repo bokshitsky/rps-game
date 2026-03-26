@@ -46,7 +46,9 @@ class Room:
     restart: Optional[RestartState] = None
     message: str = "Ждем второго игрока по ссылке."
     turn_count: int = 0
+    action_seq: int = 0
     last_battle_summary: str = ""
+    animation_hint: Optional[dict[str, Any]] = None
     ready_players: dict[int, bool] = field(default_factory=dict)
     player_tokens: dict[int, str] = field(default_factory=dict)
     player_last_seen_at: dict[int, float] = field(default_factory=dict)
@@ -128,6 +130,10 @@ class Room:
             "battle": None
             if not self.battle
             else {
+                "attackerId": self.battle.attacker_id,
+                "defenderId": self.battle.defender_id,
+                "attackerType": self.get_piece_by_id(self.battle.attacker_id).type if self.get_piece_by_id(self.battle.attacker_id) else None,
+                "defenderType": self.get_piece_by_id(self.battle.defender_id).type if self.get_piece_by_id(self.battle.defender_id) else None,
                 "round": self.battle.round,
                 "yourLocked": player_id in self.battle.locked_choices,
                 "opponentLocked": (2 if player_id == 1 else 1) in self.battle.locked_choices,
@@ -140,6 +146,7 @@ class Room:
             },
             "message": self.message,
             "lastBattleSummary": self.last_battle_summary,
+            "animationHint": self.animation_hint,
             "connectedPlayers": self.active_players(presence_timeout_seconds),
             "requiredPlayers": 2,
             "parameters": self.parameters,

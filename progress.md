@@ -38,3 +38,18 @@ Notes:
 - Moved board perspective handling to the frontend renderer so player 2 now sees the board rotated like a chess opponent view; clicks are translated back into logical server coordinates.
 - Split server/app.py into package modules: server models, constants, schemas, and room manager logic, with app.py left as the FastAPI entrypoint.
 - Reworked match start into a setup phase: 16 pieces in two back rows, random 5/5/5 plus one extra type, reroll support per player, and match start only after both players press Ready.
+
+- Added client-only animation payloads in room snapshots:
+  - `animationHint` for move/attack transitions
+  - battle snapshot now exposes attacker/defender ids and current types so battle UI and board use the same sprites
+- Movement animation is now triggered only when snapshot refresh comes from WebSocket; polling, bootstrap, and immediate HTTP action fetches do a plain rerender.
+- Added fetch-source queueing on the client so a WebSocket refresh is not lost if it arrives during an in-flight HTTP fetch.
+- Attack flow updates:
+  - defender type is always revealed at attack time
+  - both pieces move toward the center on decisive combat
+  - if combat is tied, both pieces stay in place until players submit new simultaneous choices
+  - after combat, the winner is revealed to the opponent for 2 turns
+- Validation:
+  - `npm run build` passes
+  - `poetry run python -m py_compile server/models.py server/manager.py` passes
+  - Runtime browser verification is currently blocked in this sandbox because binding a local server port is denied (`operation not permitted` on `127.0.0.1:8000`).

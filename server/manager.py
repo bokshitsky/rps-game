@@ -182,6 +182,7 @@ class RoomManager:
         room.winner = None
         room.battle = None
         room.restart = None
+        room.animation_hint = None
         room.turn_count = 0
         room.last_battle_summary = ""
         room.ready_players = {1: False, 2: False}
@@ -192,6 +193,7 @@ class RoomManager:
         room.current_player = random.choice((1, 2))
         room.turn_count = 1
         room.restart = None
+        room.animation_hint = None
         room.message = ""
 
     def _refresh_presence_message(self, room: Room) -> None:
@@ -222,6 +224,10 @@ class RoomManager:
         other_pieces = [piece for piece in room.pieces if piece.owner != player_id]
         preset = str(room.parameters.get("preset", "standard"))
         room.pieces = other_pieces + create_player_pieces(player_id, preset)
+
+    def _set_animation_hint(self, room: Room, payload: dict[str, Any]) -> None:
+        room.action_seq += 1
+        room.animation_hint = {"id": room.action_seq, **payload}
 
     def _reroll_setup(self, room: Room, player_id: int) -> None:
         if room.connected_players() < 2 or room.phase != "setup":
@@ -275,8 +281,21 @@ class RoomManager:
         if room.get_piece_at(col, row):
             return
 
+        from_col = selected.col
+        from_row = selected.row
         selected.col = col
         selected.row = row
+        self._set_animation_hint(
+            room,
+            {
+                "kind": "move",
+                "pieceId": selected.id,
+                "fromCol": from_col,
+                "fromRow": from_row,
+                "toCol": col,
+                "toRow": row,
+            },
+        )
         self._end_turn(room)
 
     def _attempt_capture(self, room: Room, player_id: int, piece_id: str, col: int, row: int) -> None:
@@ -291,12 +310,29 @@ class RoomManager:
         self._begin_battle(room, selected, target)
 
     def _begin_battle(self, room: Room, attacker: Piece, defender: Piece) -> None:
+        attacker_from = {"col": attacker.col, "row": attacker.row}
+        defender_from = {"col": defender.col, "row": defender.row}
         result = compare_types(attacker.type, defender.type)
         if result == "attacker":
             defender.alive = False
             attacker.col = defender.col
             attacker.row = defender.row
             self._reveal_piece(room, attacker)
+            self._set_animation_hint(
+                room,
+                {
+                    "kind": "attack",
+                    "attackerId": attacker.id,
+                    "defenderId": defender.id,
+                    "attackerType": attacker.type,
+                    "defenderType": defender.type,
+                    "attackerFromCol": attacker_from["col"],
+                    "attackerFromRow": attacker_from["row"],
+                    "defenderFromCol": defender_from["col"],
+                    "defenderFromRow": defender_from["row"],
+                    "winnerId": attacker.id,
+                },
+            )
             room.last_battle_summary = (
                 f"Игрок {attacker.owner}: {attacker.type} побеждает {defender.type}."
             )
@@ -306,6 +342,21 @@ class RoomManager:
         if result == "defender":
             attacker.alive = False
             self._reveal_piece(room, defender)
+            self._set_animation_hint(
+                room,
+                {
+                    "kind": "attack",
+                    "attackerId": attacker.id,
+                    "defenderId": defender.id,
+                    "attackerType": attacker.type,
+                    "defenderType": defender.type,
+                    "attackerFromCol": attacker_from["col"],
+                    "attackerFromRow": attacker_from["row"],
+                    "defenderFromCol": defender_from["col"],
+                    "defenderFromRow": defender_from["row"],
+                    "winnerId": defender.id,
+                },
+            )
             room.last_battle_summary = (
                 f"Игрок {defender.owner}: {defender.type} побеждает {attacker.type}."
             )
@@ -319,6 +370,21 @@ class RoomManager:
             attacker_owner=attacker.owner,
             defender_owner=defender.owner,
             round=1,
+        )
+        self._set_animation_hint(
+            room,
+            {
+                "kind": "attack",
+                "attackerId": attacker.id,
+                "defenderId": defender.id,
+                "attackerType": attacker.type,
+                "defenderType": defender.type,
+                "attackerFromCol": attacker_from["col"],
+                "attackerFromRow": attacker_from["row"],
+                "defenderFromCol": defender_from["col"],
+                "defenderFromRow": defender_from["row"],
+                "winnerId": None,
+            },
         )
         room.message = "Ничья. Оба игрока одновременно выбирают новый тип."
 
@@ -353,13 +419,47 @@ class RoomManager:
         room.battle = None
         if result == "attacker":
             defender.alive = False
+            attacker_from = {"col": attacker.col, "row": attacker.row}
+            defender_from = {"col": defender.col, "row": defender.row}
             attacker.col = defender.col
             attacker.row = defender.row
             self._reveal_piece(room, attacker)
+            self._set_animation_hint(
+                room,
+                {
+                    "kind": "attack",
+                    "attackerId": attacker.id,
+                    "defenderId": defender.id,
+                    "attackerType": attacker.type,
+                    "defenderType": defender.type,
+                    "attackerFromCol": attacker_from["col"],
+                    "attackerFromRow": attacker_from["row"],
+                    "defenderFromCol": defender_from["col"],
+                    "defenderFromRow": defender_from["row"],
+                    "winnerId": attacker.id,
+                },
+            )
             room.last_battle_summary = f"После переопределения типов игрок {attacker.owner} победил."
         else:
+            attacker_from = {"col": attacker.col, "row": attacker.row}
+            defender_from = {"col": defender.col, "row": defender.row}
             attacker.alive = False
             self._reveal_piece(room, defender)
+            self._set_animation_hint(
+                room,
+                {
+                    "kind": "attack",
+                    "attackerId": attacker.id,
+                    "defenderId": defender.id,
+                    "attackerType": attacker.type,
+                    "defenderType": defender.type,
+                    "attackerFromCol": attacker_from["col"],
+                    "attackerFromRow": attacker_from["row"],
+                    "defenderFromCol": defender_from["col"],
+                    "defenderFromRow": defender_from["row"],
+                    "winnerId": defender.id,
+                },
+            )
             room.last_battle_summary = f"После переопределения типов игрок {defender.owner} победил."
         self._check_winner_or_end_turn(room)
 

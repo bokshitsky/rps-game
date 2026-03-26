@@ -73,12 +73,15 @@ export interface BoardSceneDeps {
   getSnapshot: () => RoomSnapshot | null;
   getSelectedPieceId: () => string | null;
   onBoardClick: (col: number, row: number) => void;
-  onSceneReady: (scene: { renderState: () => void }) => void;
+  onSceneReady: (scene: { renderState: (animate?: boolean) => void }) => void;
 }
 
 export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
   return class BoardScene extends Phaser.Scene {
-    private dynamicObjects: Phaser.GameObjects.GameObject[] = [];
+    private boardGraphics: Phaser.GameObjects.Graphics | null = null;
+    private overlayGraphics: Phaser.GameObjects.Graphics | null = null;
+    private pieceSprites = new Map<string, Phaser.GameObjects.Image>();
+    private lastAnimationId: number | null = null;
 
     constructor() {
       super("board");
@@ -99,34 +102,38 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
       this.renderState();
     }
 
-    renderState(): void {
-      this.dynamicObjects.forEach((item) => item.destroy());
-      this.dynamicObjects = [];
-
+    renderState(animate = false): void {
       this.drawBoard();
-      this.drawPieces();
-    }
 
-    private keep<T extends Phaser.GameObjects.GameObject>(item: T): T {
-      this.dynamicObjects.push(item);
-      return item;
+      if (!this.tryAnimateSnapshot(animate)) {
+        this.syncPieceSprites();
+      }
     }
 
     private drawBoard(): void {
-      const board = this.keep(this.add.graphics());
-      board.fillGradientStyle(0xc8dd6b, 0xa6c321, 0xa6c321, 0xc8dd6b, 1);
-      board.fillRect(0, 0, boardWidth, boardHeight);
+      if (!this.boardGraphics) {
+        this.boardGraphics = this.add.graphics();
+        this.boardGraphics.fillGradientStyle(0xc8dd6b, 0xa6c321, 0xa6c321, 0xc8dd6b, 1);
+        this.boardGraphics.fillRect(0, 0, boardWidth, boardHeight);
 
-      for (let row = 0; row < boardRows; row += 1) {
-        for (let col = 0; col < boardCols; col += 1) {
-          const color = (row + col) % 2 === 0 ? boardLight : boardDark;
-          const alpha = (row + col) % 2 === 0 ? 0.92 : 0.82;
-          board.fillStyle(color, alpha);
-          board.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
-          board.lineStyle(1, 0xf7f8da, 0.35);
-          board.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
+        for (let row = 0; row < boardRows; row += 1) {
+          for (let col = 0; col < boardCols; col += 1) {
+            const color = (row + col) % 2 === 0 ? boardLight : boardDark;
+            const alpha = (row + col) % 2 === 0 ? 0.92 : 0.82;
+            this.boardGraphics.fillStyle(color, alpha);
+            this.boardGraphics.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+            this.boardGraphics.lineStyle(1, 0xf7f8da, 0.35);
+            this.boardGraphics.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
+          }
         }
       }
+
+      if (!this.overlayGraphics) {
+        this.overlayGraphics = this.add.graphics();
+      }
+
+      const board = this.overlayGraphics;
+      board.clear();
 
       const snapshot = deps.getSnapshot();
       const selectablePieces =
@@ -165,20 +172,250 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
       }
     }
 
-    private drawPieces(): void {
-      for (const piece of this.getRenderablePieces()) {
+    private syncPieceSprites(): void {
+      const pieces = this.getRenderablePieces();
+      const snapshot = deps.getSnapshot();
+      const remainingIds = new Set(pieces.map((piece) => piece.id));
+
+      for (const [pieceId, sprite] of this.pieceSprites) {
+        if (!remainingIds.has(pieceId)) {
+          sprite.destroy();
+          this.pieceSprites.delete(pieceId);
+        }
+      }
+
+      for (const piece of pieces) {
         const display = this.toDisplayCoords(piece.col, piece.row);
         const centerX = display.col * cellSize + cellSize / 2;
         const centerY = display.row * cellSize + cellSize / 2;
-        const textureKey = this.getPieceTextureKey(piece.owner, piece.knownType);
-
-        this.keep(
-          this.add
-            .image(centerX, centerY + 4, textureKey)
-            .setOrigin(0.5, 0.5)
-            .setScale(2.2),
-        );
+        const textureKey = this.getPieceTextureKey(piece.owner, this.getDisplayedType(piece.id, piece.knownType));
+        let sprite = this.pieceSprites.get(piece.id);
+        if (!sprite) {
+          sprite = this.add.image(centerX, centerY + 4, textureKey).setOrigin(0.5, 0.5).setScale(2.2);
+          this.pieceSprites.set(piece.id, sprite);
+        }
+        sprite.setTexture(textureKey);
+        sprite.setPosition(centerX, centerY + 4);
+        sprite.setAlpha(1);
       }
+
+      if (snapshot?.phase === "battle_pick" && snapshot.battle) {
+        const attacker = this.pieceSprites.get(snapshot.battle.attackerId ?? "");
+        const defender = this.pieceSprites.get(snapshot.battle.defenderId ?? "");
+        if (attacker && snapshot.battle.attackerType) {
+          const piece = pieces.find((item) => item.id === snapshot.battle?.attackerId);
+          if (piece) {
+            attacker.setTexture(this.getPieceTextureKey(piece.owner, snapshot.battle.attackerType));
+          }
+        }
+        if (defender && snapshot.battle.defenderType) {
+          const piece = pieces.find((item) => item.id === snapshot.battle?.defenderId);
+          if (piece) {
+            defender.setTexture(this.getPieceTextureKey(piece.owner, snapshot.battle.defenderType));
+          }
+        }
+      }
+    }
+
+    private tryAnimateSnapshot(animate: boolean): boolean {
+      const snapshot = deps.getSnapshot();
+      const hint = snapshot?.animationHint;
+      if (!animate || !snapshot || !hint || hint.id === this.lastAnimationId) {
+        return false;
+      }
+
+      this.lastAnimationId = hint.id;
+
+      if (hint.kind === "move" && hint.pieceId !== undefined && hint.fromCol !== undefined && hint.fromRow !== undefined && hint.toCol !== undefined && hint.toRow !== undefined) {
+        this.animateMove(hint.pieceId, hint.fromCol, hint.fromRow, hint.toCol, hint.toRow);
+        return true;
+      }
+
+      if (
+        hint.kind === "attack" &&
+        hint.attackerId &&
+        hint.defenderId &&
+        hint.attackerFromCol !== undefined &&
+        hint.attackerFromRow !== undefined &&
+        hint.defenderFromCol !== undefined &&
+        hint.defenderFromRow !== undefined &&
+        hint.attackerType &&
+        hint.defenderType
+      ) {
+        this.animateAttack(
+          hint.attackerId,
+          hint.defenderId,
+          hint.attackerFromCol,
+          hint.attackerFromRow,
+          hint.defenderFromCol,
+          hint.defenderFromRow,
+          hint.attackerType,
+          hint.defenderType,
+          hint.winnerId ?? null,
+        );
+        return true;
+      }
+
+      return false;
+    }
+
+    private animateMove(pieceId: string, fromCol: number, fromRow: number, toCol: number, toRow: number): void {
+      this.syncPieceSprites();
+      const sprite = this.pieceSprites.get(pieceId);
+      if (!sprite) {
+        this.syncPieceSprites();
+        return;
+      }
+
+      const from = this.toDisplayCoords(fromCol, fromRow);
+      const to = this.toDisplayCoords(toCol, toRow);
+      sprite.setPosition(from.col * cellSize + cellSize / 2, from.row * cellSize + cellSize / 2 + 4);
+
+      this.tweens.killTweensOf(sprite);
+      this.tweens.add({
+        targets: sprite,
+        x: to.col * cellSize + cellSize / 2,
+        y: to.row * cellSize + cellSize / 2 + 4,
+        duration: 180,
+        ease: "Quad.Out",
+        onComplete: () => this.syncPieceSprites(),
+      });
+    }
+
+    private animateAttack(
+      attackerId: string,
+      defenderId: string,
+      attackerFromCol: number,
+      attackerFromRow: number,
+      defenderFromCol: number,
+      defenderFromRow: number,
+      attackerType: KnownType,
+      defenderType: KnownType,
+      winnerId: string | null,
+    ): void {
+      this.syncPieceSprites();
+      const snapshot = deps.getSnapshot();
+      const pieces = this.getRenderablePieces();
+
+      let attacker = this.pieceSprites.get(attackerId);
+      let defender = this.pieceSprites.get(defenderId);
+      const attackerOwner = pieces.find((piece) => piece.id === attackerId)?.owner ?? snapshot?.yourPlayerId ?? 1;
+      const defenderOwner = pieces.find((piece) => piece.id === defenderId)?.owner ?? (attackerOwner === 1 ? 2 : 1);
+
+      const attackerFrom = this.toDisplayCoords(attackerFromCol, attackerFromRow);
+      const defenderFrom = this.toDisplayCoords(defenderFromCol, defenderFromRow);
+      const attackerPos = { x: attackerFrom.col * cellSize + cellSize / 2, y: attackerFrom.row * cellSize + cellSize / 2 + 4 };
+      const defenderPos = { x: defenderFrom.col * cellSize + cellSize / 2, y: defenderFrom.row * cellSize + cellSize / 2 + 4 };
+
+      if (!attacker) {
+        attacker = this.add.image(attackerPos.x, attackerPos.y, this.getPieceTextureKey(attackerOwner, attackerType)).setOrigin(0.5, 0.5).setScale(2.2);
+        this.pieceSprites.set(attackerId, attacker);
+      }
+      if (!defender) {
+        defender = this.add.image(defenderPos.x, defenderPos.y, this.getPieceTextureKey(defenderOwner, defenderType)).setOrigin(0.5, 0.5).setScale(2.2);
+        this.pieceSprites.set(defenderId, defender);
+      }
+
+      attacker.setTexture(this.getPieceTextureKey(attackerOwner, attackerType));
+      defender.setTexture(this.getPieceTextureKey(defenderOwner, defenderType));
+      attacker.setPosition(attackerPos.x, attackerPos.y).setAlpha(1);
+      defender.setPosition(defenderPos.x, defenderPos.y).setAlpha(1);
+
+      if (winnerId === null || attackerType === defenderType) {
+        return;
+      }
+
+      const midX = (attackerPos.x + defenderPos.x) / 2;
+      const midY = (attackerPos.y + defenderPos.y) / 2;
+
+      let completed = 0;
+      const onMeet = () => {
+        completed += 1;
+        if (completed < 2) {
+          return;
+        }
+
+        if (winnerId === attackerId) {
+          this.tweens.add({
+            targets: defender,
+            alpha: 0,
+            duration: 100,
+            onComplete: () => {
+              defender?.destroy();
+              this.pieceSprites.delete(defenderId);
+            },
+          });
+          const finalPiece = snapshot?.visiblePieces.find((piece) => piece.id === attackerId);
+          if (finalPiece) {
+            const final = this.toDisplayCoords(finalPiece.col, finalPiece.row);
+            this.tweens.add({
+              targets: attacker,
+              x: final.col * cellSize + cellSize / 2,
+              y: final.row * cellSize + cellSize / 2 + 4,
+              duration: 120,
+              ease: "Quad.Out",
+              onComplete: () => this.syncPieceSprites(),
+            });
+          }
+        } else {
+          this.tweens.add({
+            targets: attacker,
+            alpha: 0,
+            scale: 1.2,
+            duration: 100,
+            onComplete: () => {
+              attacker?.destroy();
+              this.pieceSprites.delete(attackerId);
+            },
+          });
+          this.tweens.add({
+            targets: defender,
+            x: defenderPos.x,
+            y: defenderPos.y,
+            duration: 120,
+            ease: "Quad.Out",
+            onComplete: () => this.syncPieceSprites(),
+          });
+        }
+      };
+
+      this.tweens.add({
+        targets: attacker,
+        x: midX,
+        y: midY,
+        duration: 160,
+        ease: "Quad.Out",
+        onComplete: onMeet,
+      });
+      this.tweens.add({
+        targets: defender,
+        x: midX,
+        y: midY,
+        duration: 160,
+        ease: "Quad.Out",
+        onComplete: onMeet,
+      });
+    }
+
+    private getDisplayedType(pieceId: string, fallback: KnownType): KnownType {
+      const snapshot = deps.getSnapshot();
+      if (
+        snapshot?.phase === "battle_pick" &&
+        snapshot.battle &&
+        snapshot.battle.attackerId === pieceId &&
+        snapshot.battle.attackerType
+      ) {
+        return snapshot.battle.attackerType;
+      }
+      if (
+        snapshot?.phase === "battle_pick" &&
+        snapshot.battle &&
+        snapshot.battle.defenderId === pieceId &&
+        snapshot.battle.defenderType
+      ) {
+        return snapshot.battle.defenderType;
+      }
+      return fallback;
     }
 
     private getRenderablePieces(): VisiblePiece[] {
