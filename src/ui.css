@@ -235,10 +235,12 @@ button:disabled {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(19, 33, 47, 0.38);
   z-index: 10;
+  padding: 24px;
 }
 
 .modal {
@@ -253,6 +255,17 @@ button:disabled {
   margin: 0 0 8px;
 }
 
+.modal-body {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.modal-field {
+  display: grid;
+  gap: 10px;
+}
+
 .modal p {
   margin: 0 0 16px;
   color: #516171;
@@ -260,13 +273,16 @@ button:disabled {
 
 .modal label {
   display: block;
-  margin-bottom: 8px;
   font-size: 14px;
   color: #516171;
 }
 
-.modal select {
+.modal select,
+.modal input[type="range"] {
   width: 100%;
+}
+
+.modal select {
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(19, 33, 47, 0.18);

@@ -67,7 +67,7 @@ const defaultState: AppShellState = {
   choicePlayerId: 1,
   overlayTitle: "Новая игра",
   overlayDescription: null,
-  overlayPrimaryLabel: "Новая игра",
+  overlayPrimaryLabel: "Начать",
   overlaySecondaryLabel: null,
   passiveOverlayLabel: null,
   onStart: () => undefined,
@@ -222,30 +222,37 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
         <div className="modal-backdrop">
           <div className="modal">
             <h2>Параметры Игры</h2>
-            <p>Пока добавлен стартовый пресет. Позже сюда можно вынести реальные настройки партии.</p>
-            <label htmlFor="preset-select">Пресет</label>
-            <select
-              id="preset-select"
-              value={state.presetValue}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                state.onPresetChange(event.target.value)
-              }
-            >
-              <option value="standard">Стандартная партия</option>
-              <option value="king">Режим с королем</option>
-            </select>
-            <label htmlFor="victory-target-range">Сколько фигур нужно съесть для победы: {state.victoryTarget}</label>
-            <input
-              id="victory-target-range"
-              type="range"
-              min="1"
-              max="16"
-              step="1"
-              value={state.victoryTarget}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                state.onVictoryTargetChange(Number(event.target.value))
-              }
-            />
+            <div className="modal-body">
+              <div className="modal-field">
+                <label htmlFor="preset-select">Режим</label>
+                <select
+                  id="preset-select"
+                  value={state.presetValue}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    state.onPresetChange(event.target.value)
+                  }
+                >
+                  <option value="standard">Стандартная партия</option>
+                  <option value="king">Режим с королем</option>
+                </select>
+              </div>
+              <div className="modal-field">
+                <label htmlFor="victory-target-range">
+                  Сколько фигур нужно съесть для победы: {state.victoryTarget}
+                </label>
+                <input
+                  id="victory-target-range"
+                  type="range"
+                  min="1"
+                  max="16"
+                  step="1"
+                  value={state.victoryTarget}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    state.onVictoryTargetChange(Number(event.target.value))
+                  }
+                />
+              </div>
+            </div>
             <div className="modal-actions">
               <button
                 className="secondary"
@@ -253,7 +260,7 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
               >
                 Отмена
               </button>
-              <button onClick={state.onConfirmModal}>Создать ссылку</button>
+              <button onClick={state.onConfirmModal}>Создать игру</button>
             </div>
           </div>
         </div>
