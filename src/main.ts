@@ -28,6 +28,8 @@ let isCreatingRoom = false;
 let isFetchingSnapshot = false;
 let queuedSnapshotSource: SnapshotSource | null = null;
 let localSelectedPieceId: string | null = null;
+let localBattleChoice: PieceType | null = null;
+let localBattleRound: number | null = null;
 let copyLinkLabel = "Копировать ссылку";
 let isConfigModalOpen = false;
 let presetValue = "standard";
@@ -140,6 +142,24 @@ function syncLocalSelectionWithSnapshot(): void {
   }
 }
 
+function syncLocalBattleChoiceWithSnapshot(): void {
+  const battle = roomSnapshot?.battle;
+  if (roomSnapshot?.phase !== "battle_pick" || !battle) {
+    localBattleChoice = null;
+    localBattleRound = null;
+    return;
+  }
+
+  if (localBattleRound !== battle.round) {
+    localBattleRound = battle.round;
+    localBattleChoice = null;
+  }
+
+  if (!battle.yourLocked) {
+    localBattleChoice = null;
+  }
+}
+
 function showConfigModal(show: boolean): void {
   isConfigModalOpen = show;
   syncUi();
@@ -244,6 +264,7 @@ async function fetchSnapshot(roomId: string, source: SnapshotSource = "poll"): P
     const snapshot = (await response.json()) as RoomSnapshot;
     roomSnapshot = snapshot;
     syncLocalSelectionWithSnapshot();
+    syncLocalBattleChoiceWithSnapshot();
     savePlayerToken(snapshot.roomId, snapshot.playerToken);
     shareUrl = buildShareUrl(snapshot.roomId);
     if (connectionState !== "error") {
@@ -470,6 +491,9 @@ function resolveBattleChoice(choice: PieceType): void {
     return;
   }
   clearLocalSelection();
+  localBattleChoice = choice;
+  localBattleRound = roomSnapshot.battle?.round ?? null;
+  syncUi();
   void postAction({ type: "battle_choice", choice });
 }
 
@@ -479,7 +503,7 @@ function syncUi(): void {
   }
 
   const snapshot = roomSnapshot;
-  const showChoices = snapshot?.phase === "battle_pick" && snapshot.canAct;
+  const showChoices = snapshot?.phase === "battle_pick";
   const showSetup = snapshot?.phase === "setup" && snapshot.connectedPlayers === snapshot.requiredPlayers;
   const showPassiveOpponentTurnOverlay =
     snapshot?.phase === "turn" &&
@@ -502,6 +526,14 @@ function syncUi(): void {
         ? "Соперник готов"
         : "Соперник подключился"
     : null;
+  const battlePrompt =
+    snapshot?.phase === "battle_pick" && snapshot.battle
+      ? snapshot.battle.yourLocked
+        ? "Ждем соперника"
+        : snapshot.battle.round > 1
+          ? "Еще раз выберите новую фигуру"
+          : "Выберите новую фигуру"
+      : null;
 
   let overlayTitle: string | null = null;
   let overlayDescription: string | null = null;
@@ -571,6 +603,9 @@ function syncUi(): void {
       isRestartRequestedByYou ||
       isRestartAwaitingYourDecision,
     showBattleChoices: showChoices,
+    battlePrompt,
+    battleChoiceLocked: Boolean(snapshot?.phase === "battle_pick" && snapshot.battle?.yourLocked),
+    selectedBattleChoice: localBattleChoice,
     showSetup,
     setupStatusLabel,
     readyDisabled: Boolean(showSetup && snapshot?.setup.yourReady),

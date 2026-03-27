@@ -15,6 +15,9 @@ export interface AppShellState {
   restartButtonLabel: string;
   restartButtonDisabled: boolean;
   showBattleChoices: boolean;
+  battlePrompt: string | null;
+  battleChoiceLocked: boolean;
+  selectedBattleChoice: PieceType | null;
   showSetup: boolean;
   setupStatusLabel: string | null;
   readyDisabled: boolean;
@@ -58,6 +61,9 @@ const defaultState: AppShellState = {
   restartButtonLabel: "Начать сначала",
   restartButtonDisabled: false,
   showBattleChoices: false,
+  battlePrompt: null,
+  battleChoiceLocked: false,
+  selectedBattleChoice: null,
   showSetup: false,
   setupStatusLabel: null,
   readyDisabled: false,
@@ -185,12 +191,15 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
 
             {state.showBattleChoices ? (
               <div className="choice-row">
+                {state.battlePrompt ? <div className="choice-row-title">{state.battlePrompt}</div> : null}
                 {pieceTypes.map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => state.onBattleChoice(type)}
-                        title={type}
-                        aria-label={type}
+                  <button
+                    key={type}
+                    className={state.selectedBattleChoice === type ? "selected" : ""}
+                    onClick={() => state.onBattleChoice(type)}
+                    title={type}
+                    aria-label={type}
+                    disabled={state.battleChoiceLocked}
                   >
                     <img
                       src={createPieceIconDataUrl(state.choicePlayerId, type)}
