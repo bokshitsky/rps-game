@@ -52,8 +52,15 @@ export interface RestartState {
   awaitingYourDecision: boolean;
 }
 
+export interface PlayerTimer {
+  remainingMs: number;
+  running: boolean;
+  started: boolean;
+}
+
 export interface RoomSnapshot {
   roomId: string;
+  snapshotTimeMs: number;
   phase: Phase;
   yourPlayerId: PlayerId;
   playerToken: string;
@@ -71,6 +78,11 @@ export interface RoomSnapshot {
   parameters: {
     preset: "standard" | "king";
     victoryTarget: number;
+    timeLimitMinutes: number;
+  };
+  timers: {
+    player1: PlayerTimer;
+    player2: PlayerTimer;
   };
   canAct: boolean;
   counts: {

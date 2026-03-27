@@ -10,6 +10,8 @@
   --controls-height: 96px;
   --gap: 16px;
   --board-ratio: 4 / 3;
+  --timer-slot-height: 48px;
+  --timer-slot-gap: 10px;
 }
 
 * {
@@ -85,6 +87,13 @@ button:disabled {
   justify-content: flex-start;
 }
 
+.controls-column {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .actions {
   width: 100%;
   display: grid;
@@ -101,11 +110,19 @@ button:disabled {
   justify-content: flex-start;
 }
 
+.board-shell {
+  width: min(100%, calc((100dvh - (2 * var(--gap))) * var(--board-ratio)));
+  max-height: calc(100dvh - (2 * var(--gap)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--timer-slot-gap);
+}
+
 .board-stage {
   position: relative;
   aspect-ratio: var(--board-ratio);
-  width: min(100%, calc((100dvh - (2 * var(--gap))) * var(--board-ratio)));
-  max-height: calc(100dvh - (2 * var(--gap)));
+  width: min(100%, calc((100dvh - (2 * var(--gap)) - (2 * var(--timer-slot-height)) - (2 * var(--timer-slot-gap))) * var(--board-ratio)));
+  max-height: calc(100dvh - (2 * var(--gap)) - (2 * var(--timer-slot-height)) - (2 * var(--timer-slot-gap)));
   overflow: hidden;
 }
 
@@ -122,6 +139,50 @@ button:disabled {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.board-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: rgba(19, 33, 47, 0.78);
+  box-shadow: 0 10px 24px rgba(19, 33, 47, 0.16);
+}
+
+.board-timer-row {
+  height: var(--timer-slot-height);
+  display: flex;
+  align-items: center;
+}
+
+.board-timer-row-top {
+  justify-content: flex-start;
+}
+
+.board-timer-row-bottom {
+  justify-content: flex-start;
+}
+
+.board-timer {
+  min-height: 52px;
+  min-width: 124px;
+  padding: 0 18px;
+  border-radius: 18px;
+}
+
+.board-timer-player1 {
+  background: rgba(226, 90, 44, 0.88);
+}
+
+.board-timer-player2 {
+  background: rgba(47, 107, 255, 0.88);
+}
+
+.board-timer.running {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.16), 0 10px 24px rgba(19, 33, 47, 0.18);
 }
 
 .overlay-panel,
@@ -372,6 +433,10 @@ button:disabled {
     flex: 0 0 auto;
   }
 
+  .controls-column {
+    height: auto;
+  }
+
   .actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -381,9 +446,19 @@ button:disabled {
     justify-content: center;
   }
 
-  .board-stage {
+  .board-shell {
     width: min(100%, calc((100dvh - var(--controls-height) - (3 * var(--gap))) * var(--board-ratio)));
     max-height: calc(100dvh - var(--controls-height) - (3 * var(--gap)));
+  }
+
+  .board-stage {
+    width: min(100%, calc((100dvh - var(--controls-height) - (3 * var(--gap)) - (2 * var(--timer-slot-height)) - (2 * var(--timer-slot-gap))) * var(--board-ratio)));
+    max-height: calc(100dvh - var(--controls-height) - (3 * var(--gap)) - (2 * var(--timer-slot-height)) - (2 * var(--timer-slot-gap)));
+  }
+
+  .board-timer-row-top,
+  .board-timer-row-bottom {
+    justify-content: center;
   }
 }
 
@@ -391,6 +466,8 @@ button:disabled {
   :root {
     --gap: 10px;
     --controls-height: 88px;
+    --timer-slot-height: 42px;
+    --timer-slot-gap: 8px;
   }
 
   button {
@@ -423,5 +500,12 @@ button:disabled {
   .choice-row button {
     width: 68px;
     height: 68px;
+  }
+
+  .board-timer {
+    min-width: 104px;
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 14px;
   }
 }

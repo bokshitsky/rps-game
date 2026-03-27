@@ -70,6 +70,10 @@ class RoomManager:
     def create_room(self, parameters: dict[str, Any]) -> tuple[Room, int]:
         room_id = secrets.token_urlsafe(6)
         room = Room(room_id=room_id, parameters=parameters)
+        initial_time_ms = int(parameters.get("timeLimitMinutes", 5)) * 60 * 1000
+        room.player_time_remaining_ms = {1: initial_time_ms, 2: initial_time_ms}
+        room.player_time_started = {1: False, 2: False}
+        room.player_clock_running_since = {1: None, 2: None}
         player_id = 1
         room.player_tokens[player_id] = secrets.token_urlsafe(16)
         room.player_last_seen_at[player_id] = time.monotonic()
@@ -89,6 +93,9 @@ class RoomManager:
     def touch_player(self, room: Room, player_id: int) -> None:
         room.player_last_seen_at[player_id] = time.monotonic()
         self._refresh_presence_message(room)
+
+    def sync_room(self, room: Room) -> None:
+        self._sync_clocks(room)
 
     async def connect(self, room_id: str, websocket: WebSocket, token: Optional[str]) -> tuple[Room, int]:
         room = self.get_room(room_id)
@@ -111,6 +118,7 @@ class RoomManager:
 
     async def handle_action(self, room: Room, player_id: int, payload: dict[str, Any]) -> None:
         async with room.lock:
+            self._sync_clocks(room)
             action_type = payload.get("type")
             if action_type == "move_piece":
                 self._move_piece(
@@ -178,6 +186,7 @@ class RoomManager:
         room.phase = "setup"
         room.current_player = None
         preset = str(room.parameters.get("preset", "standard"))
+        initial_time_ms = int(room.parameters.get("timeLimitMinutes", 5)) * 60 * 1000
         room.pieces = create_player_pieces(1, preset) + create_player_pieces(2, preset)
         room.winner = None
         room.battle = None
@@ -186,6 +195,9 @@ class RoomManager:
         room.turn_count = 0
         room.last_battle_summary = ""
         room.ready_players = {1: False, 2: False}
+        room.player_time_remaining_ms = {1: initial_time_ms, 2: initial_time_ms}
+        room.player_time_started = {1: False, 2: False}
+        room.player_clock_running_since = {1: None, 2: None}
         room.message = "Оба игрока подключились. Пересбросьте расстановку при желании и нажмите «Готов»."
 
     def _start_match(self, room: Room) -> None:
@@ -195,6 +207,7 @@ class RoomManager:
         room.restart = None
         room.animation_hint = None
         room.message = ""
+        self._update_running_clocks(room)
 
     def _refresh_presence_message(self, room: Room) -> None:
         active_players = room.active_players(PLAYER_PRESENCE_TIMEOUT_SECONDS)
@@ -224,6 +237,61 @@ class RoomManager:
         other_pieces = [piece for piece in room.pieces if piece.owner != player_id]
         preset = str(room.parameters.get("preset", "standard"))
         room.pieces = other_pieces + create_player_pieces(player_id, preset)
+
+    def _mark_first_action_complete(self, room: Room, player_id: int) -> None:
+        room.player_time_started[player_id] = True
+
+    def _finish_game_on_timeout(self, room: Room, loser_id: int) -> None:
+        room.phase = "game_over"
+        room.current_player = None
+        room.winner = 2 if loser_id == 1 else 1
+        room.battle = None
+        room.restart = None
+        room.player_clock_running_since = {1: None, 2: None}
+        room.message = ""
+
+    def _players_with_running_time(self, room: Room) -> set[int]:
+        if room.active_players(PLAYER_PRESENCE_TIMEOUT_SECONDS) < 2:
+            return set()
+        if room.phase == "turn" and room.current_player and room.player_time_started.get(room.current_player, False):
+            return {room.current_player}
+        if room.phase == "battle_pick" and room.battle:
+            return {
+                player_id
+                for player_id in (room.battle.attacker_owner, room.battle.defender_owner)
+                if player_id not in room.battle.locked_choices and room.player_time_started.get(player_id, False)
+            }
+        return set()
+
+    def _update_running_clocks(self, room: Room) -> None:
+        active_players = self._players_with_running_time(room)
+        now = time.monotonic()
+        for player_id in (1, 2):
+            if player_id in active_players and room.player_time_remaining_ms.get(player_id, 0) > 0:
+                if room.player_clock_running_since.get(player_id) is None:
+                    room.player_clock_running_since[player_id] = now
+            else:
+                room.player_clock_running_since[player_id] = None
+
+    def _sync_clocks(self, room: Room) -> None:
+        now = time.monotonic()
+        for player_id in (1, 2):
+            started_at = room.player_clock_running_since.get(player_id)
+            if started_at is None:
+                continue
+            elapsed_ms = int((now - started_at) * 1000)
+            if elapsed_ms <= 0:
+                room.player_clock_running_since[player_id] = now
+                continue
+            room.player_time_remaining_ms[player_id] = max(
+                0,
+                room.player_time_remaining_ms.get(player_id, 0) - elapsed_ms,
+            )
+            room.player_clock_running_since[player_id] = now
+            if room.player_time_remaining_ms[player_id] <= 0:
+                self._finish_game_on_timeout(room, player_id)
+                return
+        self._update_running_clocks(room)
 
     def _set_animation_hint(self, room: Room, payload: dict[str, Any]) -> None:
         room.action_seq += 1
@@ -281,6 +349,7 @@ class RoomManager:
         if room.get_piece_at(col, row):
             return
 
+        self._mark_first_action_complete(room, player_id)
         from_col = selected.col
         from_row = selected.row
         selected.col = col
@@ -307,6 +376,7 @@ class RoomManager:
         if not target or target.owner == player_id:
             return
 
+        self._mark_first_action_complete(room, player_id)
         self._begin_battle(room, selected, target)
 
     def _begin_battle(self, room: Room, attacker: Piece, defender: Piece) -> None:
@@ -387,6 +457,7 @@ class RoomManager:
             },
         )
         room.message = "Ничья. Оба игрока одновременно выбирают новый тип."
+        self._update_running_clocks(room)
 
     def _resolve_battle_choice(self, room: Room, player_id: int, choice: str) -> None:
         if room.connected_players() < 2 or room.phase != "battle_pick" or not room.battle:
@@ -400,11 +471,13 @@ class RoomManager:
             room.phase = "turn"
             room.battle = None
             room.message = "Бой сброшен из-за несогласованного состояния."
+            self._update_running_clocks(room)
             return
 
         room.battle.locked_choices[player_id] = choice
         if len(room.battle.locked_choices) < 2:
             room.message = "Ожидаем тайный выбор соперника."
+            self._update_running_clocks(room)
             return
 
         attacker.type = room.battle.locked_choices[attacker.owner]
@@ -414,6 +487,7 @@ class RoomManager:
             room.battle.round += 1
             room.battle.locked_choices.clear()
             room.message = f"Снова ничья. Раунд {room.battle.round}: оба игрока выбирают новый тип."
+            self._update_running_clocks(room)
             return
 
         room.battle = None
@@ -487,8 +561,10 @@ class RoomManager:
 
         if winner:
             room.phase = "game_over"
+            room.current_player = None
             room.winner = winner
             room.restart = None
+            room.player_clock_running_since = {1: None, 2: None}
             room.message = f"Игрок {winner} победил и захватил поле."
             return
         self._end_turn(room)
@@ -498,3 +574,4 @@ class RoomManager:
         room.phase = "turn"
         room.turn_count += 1
         room.message = ""
+        self._update_running_clocks(room)

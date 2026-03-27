@@ -52,6 +52,9 @@ class Room:
     ready_players: dict[int, bool] = field(default_factory=dict)
     player_tokens: dict[int, str] = field(default_factory=dict)
     player_last_seen_at: dict[int, float] = field(default_factory=dict)
+    player_time_remaining_ms: dict[int, int] = field(default_factory=lambda: {1: 0, 2: 0})
+    player_time_started: dict[int, bool] = field(default_factory=lambda: {1: False, 2: False})
+    player_clock_running_since: dict[int, Optional[float]] = field(default_factory=lambda: {1: None, 2: None})
     sockets: dict[int, WebSocket] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     last_poll_at: float = field(default_factory=time.monotonic)
@@ -117,6 +120,7 @@ class Room:
         ]
         return {
             "roomId": self.room_id,
+            "snapshotTimeMs": int(time.time() * 1000),
             "phase": self.phase,
             "yourPlayerId": player_id,
             "playerToken": self.player_tokens[player_id],
@@ -150,6 +154,18 @@ class Room:
             "connectedPlayers": self.active_players(presence_timeout_seconds),
             "requiredPlayers": 2,
             "parameters": self.parameters,
+            "timers": {
+                "player1": {
+                    "remainingMs": self.player_time_remaining_ms.get(1, 0),
+                    "running": self.player_clock_running_since.get(1) is not None,
+                    "started": self.player_time_started.get(1, False),
+                },
+                "player2": {
+                    "remainingMs": self.player_time_remaining_ms.get(2, 0),
+                    "running": self.player_clock_running_since.get(2) is not None,
+                    "started": self.player_time_started.get(2, False),
+                },
+            },
             "canAct": self.can_act(player_id, presence_timeout_seconds),
             "counts": {
                 "player1": len(self.get_alive_pieces(1)),

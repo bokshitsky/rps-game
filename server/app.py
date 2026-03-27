@@ -31,6 +31,7 @@ async def create_game(payload: CreateRoomRequest) -> dict[str, Any]:
         {
             "preset": payload.preset,
             "victoryTarget": payload.victory_target,
+            "timeLimitMinutes": payload.time_limit_minutes,
         }
     )
     return {
@@ -44,10 +45,12 @@ async def create_game(payload: CreateRoomRequest) -> dict[str, Any]:
 @app.get("/api/games/{room_id}")
 async def get_game_state(room_id: str, token: Optional[str] = Query(default=None)) -> dict[str, Any]:
     room = manager.get_room(room_id)
-    player_id = manager.resolve_player(room, token)
-    manager.touch_poll(room)
-    manager.touch_player(room, player_id)
-    return room.snapshot_for(player_id, PLAYER_PRESENCE_TIMEOUT_SECONDS)
+    async with room.lock:
+        player_id = manager.resolve_player(room, token)
+        manager.touch_poll(room)
+        manager.touch_player(room, player_id)
+        manager.sync_room(room)
+        return room.snapshot_for(player_id, PLAYER_PRESENCE_TIMEOUT_SECONDS)
 
 
 @app.post("/api/games/{room_id}/actions")

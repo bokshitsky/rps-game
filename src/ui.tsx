@@ -15,6 +15,13 @@ export interface AppShellState {
   showRestartButton: boolean;
   restartButtonLabel: string;
   restartButtonDisabled: boolean;
+  showTimers: boolean;
+  yourTimerLabel: string;
+  opponentTimerLabel: string;
+  yourTimerRunning: boolean;
+  opponentTimerRunning: boolean;
+  yourTimerTone: "player1" | "player2";
+  opponentTimerTone: "player1" | "player2";
   showBattleChoices: boolean;
   battlePrompt: string | null;
   battleChoiceLocked: boolean;
@@ -27,6 +34,7 @@ export interface AppShellState {
   showModal: boolean;
   presetValue: string;
   victoryTarget: number;
+  timeLimitMinutes: number;
   choicePlayerId: PlayerId;
   overlayTitle: string | null;
   overlayDescription: string | null;
@@ -45,6 +53,7 @@ export interface AppShellState {
   onReady: () => void;
   onPresetChange: (value: string) => void;
   onVictoryTargetChange: (value: number) => void;
+  onTimeLimitChange: (value: number) => void;
   onCancelModal: () => void;
   onConfirmModal: () => void;
   onOverlayPrimary: () => void;
@@ -64,6 +73,13 @@ const defaultState: AppShellState = {
   showRestartButton: false,
   restartButtonLabel: "Начать сначала",
   restartButtonDisabled: false,
+  showTimers: false,
+  yourTimerLabel: "05:00",
+  opponentTimerLabel: "05:00",
+  yourTimerRunning: false,
+  opponentTimerRunning: false,
+  yourTimerTone: "player2",
+  opponentTimerTone: "player1",
   showBattleChoices: false,
   battlePrompt: null,
   battleChoiceLocked: false,
@@ -76,6 +92,7 @@ const defaultState: AppShellState = {
   showModal: false,
   presetValue: "standard",
   victoryTarget: 12,
+  timeLimitMinutes: 5,
   choicePlayerId: 1,
   overlayTitle: "Бокшахматы",
   overlayDescription: null,
@@ -94,6 +111,7 @@ const defaultState: AppShellState = {
   onReady: () => undefined,
   onPresetChange: () => undefined,
   onVictoryTargetChange: () => undefined,
+  onTimeLimitChange: () => undefined,
   onCancelModal: () => undefined,
   onConfirmModal: () => undefined,
   onOverlayPrimary: () => undefined,
@@ -160,92 +178,112 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
       <div className="shell-layout">
         {state.showControls ? (
           <div className="controls-dock">
-            <div className="actions">
-              <button onClick={state.onStart}>Новая игра</button>
-              <button
-                className="secondary"
-                onClick={state.onToggleSound}
-              >
-                {state.soundEnabled ? "Звук: вкл" : "Звук: выкл"}
-              </button>
-              {state.showRestartButton ? (
+            <div className="controls-column">
+              <div className="actions">
+                <button onClick={state.onStart}>Новая игра</button>
                 <button
                   className="secondary"
-                  onClick={state.onRestart}
-                  disabled={state.restartButtonDisabled}
+                  onClick={state.onToggleSound}
                 >
-                  {state.restartButtonLabel}
+                  {state.soundEnabled ? "Звук: вкл" : "Звук: выкл"}
                 </button>
-              ) : null}
-              <button
-                className="secondary"
-                onClick={state.onCopyLink}
-                disabled={!state.canCopyLink}
-              >
-                {state.copyLinkLabel}
-              </button>
+                {state.showRestartButton ? (
+                  <button
+                    className="secondary"
+                    onClick={state.onRestart}
+                    disabled={state.restartButtonDisabled}
+                  >
+                    {state.restartButtonLabel}
+                  </button>
+                ) : null}
+                <button
+                  className="secondary"
+                  onClick={state.onCopyLink}
+                  disabled={!state.canCopyLink}
+                >
+                  {state.copyLinkLabel}
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
 
         <div className="board-wrap">
-          <div
-            className="board-stage"
-            style={{ aspectRatio }}
-          >
+          <div className="board-shell">
+            {state.showTimers ? (
+              <div className="board-timer-row board-timer-row-top">
+                <div className={`board-timer board-timer-${state.opponentTimerTone}${state.opponentTimerRunning ? " running" : ""}`}>
+                  {state.opponentTimerLabel}
+                </div>
+              </div>
+            ) : null}
+
             <div
-              id="game-host"
-              ref={onGameHostRef}
-            />
+              className="board-stage"
+              style={{ aspectRatio }}
+            >
+              <div
+                id="game-host"
+                ref={onGameHostRef}
+              />
 
-            {!state.overlayOutsideBoard ? overlayContent : null}
+              {!state.overlayOutsideBoard ? overlayContent : null}
 
-            {state.passiveOverlayLabel ? (
-              <div className="passive-turn-overlay">
-                <div className="passive-turn-label">{state.passiveOverlayLabel}</div>
-              </div>
-            ) : null}
+              {state.passiveOverlayLabel ? (
+                <div className="passive-turn-overlay">
+                  <div className="passive-turn-label">{state.passiveOverlayLabel}</div>
+                </div>
+              ) : null}
 
-            {state.showBattleChoices ? (
-              <div className="choice-row">
-                {state.battlePrompt ? <div className="choice-row-title">{state.battlePrompt}</div> : null}
-                {pieceTypes.map((type) => (
-                  <button
-                    key={type}
-                    className={state.selectedBattleChoice === type ? "selected" : ""}
-                    onClick={() => state.onBattleChoice(type)}
-                    title={type}
-                    aria-label={type}
-                    disabled={state.battleChoiceLocked}
-                  >
-                    <img
-                      src={createPieceIconDataUrl(state.choicePlayerId, type)}
-                      alt={type}
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : null}
+              {state.showBattleChoices ? (
+                <div className="choice-row">
+                  {state.battlePrompt ? <div className="choice-row-title">{state.battlePrompt}</div> : null}
+                  {pieceTypes.map((type) => (
+                    <button
+                      key={type}
+                      className={state.selectedBattleChoice === type ? "selected" : ""}
+                      onClick={() => state.onBattleChoice(type)}
+                      title={type}
+                      aria-label={type}
+                      disabled={state.battleChoiceLocked}
+                    >
+                      <img
+                        src={createPieceIconDataUrl(state.choicePlayerId, type)}
+                        alt={type}
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
 
-            {state.showSetup ? (
-              <div className="setup-panel">
-                {state.setupStatusLabel ? (
-                  <div className="setup-status">{state.setupStatusLabel}</div>
-                ) : null}
-                <div className="setup-actions">
-                  <button
-                    onClick={state.onReady}
-                    disabled={state.readyDisabled}
-                  >
-                    {state.readyLabel}
-                  </button>
-                  <button
-                    className="secondary"
-                    onClick={state.onReroll}
-                    disabled={state.rerollDisabled}
-                  >
-                    Поменять расстановку
-                  </button>
+              {state.showSetup ? (
+                <div className="setup-panel">
+                  {state.setupStatusLabel ? (
+                    <div className="setup-status">{state.setupStatusLabel}</div>
+                  ) : null}
+                  <div className="setup-actions">
+                    <button
+                      onClick={state.onReady}
+                      disabled={state.readyDisabled}
+                    >
+                      {state.readyLabel}
+                    </button>
+                    <button
+                      className="secondary"
+                      onClick={state.onReroll}
+                      disabled={state.rerollDisabled}
+                    >
+                      Поменять расстановку
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {state.showTimers ? (
+              <div className="board-timer-row board-timer-row-bottom">
+                <div className={`board-timer board-timer-${state.yourTimerTone}${state.yourTimerRunning ? " running" : ""}`}>
+                  {state.yourTimerLabel}
                 </div>
               </div>
             ) : null}
@@ -287,6 +325,22 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
                   value={state.victoryTarget}
                   onChange={(event: ChangeEvent<HTMLInputElement>) =>
                     state.onVictoryTargetChange(Number(event.target.value))
+                  }
+                />
+              </div>
+              <div className="modal-field">
+                <label htmlFor="time-limit-range">
+                  Лимит времени: {state.timeLimitMinutes} мин.
+                </label>
+                <input
+                  id="time-limit-range"
+                  type="range"
+                  min="1"
+                  max="15"
+                  step="1"
+                  value={state.timeLimitMinutes}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    state.onTimeLimitChange(Number(event.target.value))
                   }
                 />
               </div>

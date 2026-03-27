@@ -34,6 +34,7 @@ let copyLinkLabel = "Копировать ссылку";
 let isConfigModalOpen = false;
 let presetValue = "standard";
 let victoryTarget = 12;
+let timeLimitMinutes = 5;
 let ui: AppShellController | null = null;
 
 const soundKey = "hidden-rps:sound-enabled";
@@ -74,6 +75,24 @@ function playSound(kind: keyof typeof soundAssets): void {
   const audio = baseAudio.cloneNode(true) as HTMLAudioElement;
   audio.volume = baseAudio.volume;
   void audio.play().catch(() => undefined);
+}
+
+function formatTimerLabel(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getDisplayedTimerMs(playerId: PlayerId): number {
+  if (!roomSnapshot) {
+    return timeLimitMinutes * 60 * 1000;
+  }
+  const timer = playerId === 1 ? roomSnapshot.timers.player1 : roomSnapshot.timers.player2;
+  if (!timer.running) {
+    return timer.remainingMs;
+  }
+  return Math.max(0, timer.remainingMs - (Date.now() - roomSnapshot.snapshotTimeMs));
 }
 
 function getRoomIdFromUrl(): string | null {
@@ -177,7 +196,11 @@ async function createRoom(): Promise<void> {
     const response = await fetch("/api/games", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ preset: presetValue, victory_target: victoryTarget }),
+      body: JSON.stringify({
+        preset: presetValue,
+        victory_target: victoryTarget,
+        time_limit_minutes: timeLimitMinutes,
+      }),
     });
 
     if (!response.ok) {
@@ -534,6 +557,10 @@ function syncUi(): void {
           ? "Еще раз выберите новую фигуру"
           : "Выберите новую фигуру"
       : null;
+  const yourTimerPlayerId = snapshot?.yourPlayerId ?? 2;
+  const opponentTimerPlayerId = yourTimerPlayerId === 1 ? 2 : 1;
+  const yourTimerMs = getDisplayedTimerMs(yourTimerPlayerId);
+  const opponentTimerMs = getDisplayedTimerMs(opponentTimerPlayerId);
 
   let overlayTitle: string | null = null;
   let overlayDescription: string | null = null;
@@ -608,6 +635,13 @@ function syncUi(): void {
       snapshot.connectedPlayers < snapshot.requiredPlayers ||
       isRestartRequestedByYou ||
       isRestartAwaitingYourDecision,
+    showTimers: Boolean(snapshot),
+    yourTimerLabel: formatTimerLabel(yourTimerMs),
+    opponentTimerLabel: formatTimerLabel(opponentTimerMs),
+    yourTimerRunning: Boolean(snapshot && (yourTimerPlayerId === 1 ? snapshot.timers.player1.running : snapshot.timers.player2.running)),
+    opponentTimerRunning: Boolean(snapshot && (opponentTimerPlayerId === 1 ? snapshot.timers.player1.running : snapshot.timers.player2.running)),
+    yourTimerTone: yourTimerPlayerId === 1 ? "player1" : "player2",
+    opponentTimerTone: opponentTimerPlayerId === 1 ? "player1" : "player2",
     showBattleChoices: showChoices,
     battlePrompt,
     battleChoiceLocked: Boolean(snapshot?.phase === "battle_pick" && snapshot.battle?.yourLocked),
@@ -620,6 +654,7 @@ function syncUi(): void {
     showModal: isConfigModalOpen,
     presetValue,
     victoryTarget,
+    timeLimitMinutes,
     choicePlayerId: snapshot?.yourPlayerId ?? 1,
     overlayTitle,
     overlayDescription,
@@ -645,6 +680,10 @@ function syncUi(): void {
     },
     onVictoryTargetChange: (value) => {
       victoryTarget = value;
+      syncUi();
+    },
+    onTimeLimitChange: (value) => {
+      timeLimitMinutes = value;
       syncUi();
     },
     onCancelModal: () => showConfigModal(false),
@@ -686,6 +725,7 @@ function renderGameToText(): string {
     selectedPieceId: localSelectedPieceId,
     setup: roomSnapshot.setup,
     restart: roomSnapshot.restart,
+    timers: roomSnapshot.timers,
     visiblePieces: roomSnapshot.visiblePieces,
     counts: roomSnapshot.counts,
     connectedPlayers: roomSnapshot.connectedPlayers,
@@ -783,6 +823,11 @@ async function initialize(): Promise<void> {
     }
   });
   window.addEventListener("resize", () => requestRender(false));
+  window.setInterval(() => {
+    if (roomSnapshot && (roomSnapshot.timers.player1.running || roomSnapshot.timers.player2.running)) {
+      syncUi();
+    }
+  }, 250);
 
   window.render_game_to_text = renderGameToText;
   window.advanceTime = (_ms: number) => {
