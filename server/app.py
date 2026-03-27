@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -12,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from .manager import PLAYER_PRESENCE_TIMEOUT_SECONDS, RoomManager
 from .models import Room
 from .schemas import CreateRoomRequest, RoomActionRequest
-
+from .static_files import StaticFilesWithRewrites
 
 manager = RoomManager()
 app = FastAPI(title="Hidden RPS Multiplayer")
@@ -89,8 +90,13 @@ async def room_socket(websocket: WebSocket, room_id: str, token: Optional[str] =
 DIST_DIR = Path(__file__).resolve().parent.parent / "dist"
 ASSETS_DIR = DIST_DIR / "assets"
 
-if ASSETS_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+
+app.mount(
+    '/',
+    StaticFilesWithRewrites(rewrites=[(re.compile(r'.*'), 'index.html')], directory=DIST_DIR, html=True),
+    name='webapp',
+)
 
 
 @app.get("/{full_path:path}")
