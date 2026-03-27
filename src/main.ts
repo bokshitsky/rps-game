@@ -38,17 +38,54 @@ let timeLimitMinutes = 5;
 let ui: AppShellController | null = null;
 
 const soundKey = "hidden-rps:sound-enabled";
+type SoundAsset = {
+  src: string;
+  volume: number;
+  objectUrl: string | null;
+  preloadPromise: Promise<void> | null;
+};
 const soundAssets = {
-  move: createSoundPlayer(moveClickUrl, 0.42),
-  attack: createSoundPlayer(attackClickUrl, 0.5),
+  move: createSoundAsset(moveClickUrl, 0.42),
+  attack: createSoundAsset(attackClickUrl, 0.5),
 };
 let soundEnabled = loadSoundEnabled();
 
-function createSoundPlayer(src: string, volume: number): HTMLAudioElement {
-  const audio = new Audio(src);
-  audio.preload = "auto";
-  audio.volume = volume;
-  return audio;
+function createSoundAsset(src: string, volume: number): SoundAsset {
+  return {
+    src,
+    volume,
+    objectUrl: null,
+    preloadPromise: null,
+  };
+}
+
+async function ensureSoundAssetLoaded(asset: SoundAsset): Promise<void> {
+  if (asset.objectUrl) {
+    return;
+  }
+  if (asset.preloadPromise) {
+    await asset.preloadPromise;
+    return;
+  }
+
+  asset.preloadPromise = (async () => {
+    const response = await fetch(asset.src);
+    if (!response.ok) {
+      throw new Error(`sound preload failed: ${response.status}`);
+    }
+    const blob = await response.blob();
+    asset.objectUrl = URL.createObjectURL(blob);
+  })();
+
+  try {
+    await asset.preloadPromise;
+  } finally {
+    asset.preloadPromise = null;
+  }
+}
+
+async function preloadSoundAssets(): Promise<void> {
+  await Promise.all(Object.values(soundAssets).map((asset) => ensureSoundAssetLoaded(asset)));
 }
 
 function loadSoundEnabled(): boolean {
@@ -71,9 +108,10 @@ function playSound(kind: keyof typeof soundAssets): void {
     return;
   }
 
-  const baseAudio = soundAssets[kind];
-  const audio = baseAudio.cloneNode(true) as HTMLAudioElement;
-  audio.volume = baseAudio.volume;
+  const asset = soundAssets[kind];
+  const audio = new Audio(asset.objectUrl ?? asset.src);
+  audio.preload = "auto";
+  audio.volume = asset.volume;
   void audio.play().catch(() => undefined);
 }
 
@@ -788,6 +826,11 @@ async function copyInviteLink(): Promise<void> {
 }
 
 async function initialize(): Promise<void> {
+  try {
+    await preloadSoundAssets();
+  } catch (error) {
+    console.error(error);
+  }
   ui = await mountAppShell(appRoot);
 
   const BoardScene = createBoardScene({
