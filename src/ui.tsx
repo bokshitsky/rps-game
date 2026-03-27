@@ -3,6 +3,7 @@ import type { ChangeEvent, RefCallback } from "react";
 
 import { canvasHeight, canvasWidth, pieceTypes } from "./constants";
 import { createPieceIconDataUrl } from "./pieceArt";
+import { createQrSvgDataUrl } from "./qrCode";
 import type { PieceType, PlayerId } from "./types";
 import "./ui.css";
 
@@ -31,6 +32,8 @@ export interface AppShellState {
   overlayDescription: string | null;
   overlayPrimaryLabel: string | null;
   overlaySecondaryLabel: string | null;
+  overlayQrValue: string | null;
+  overlayCompact: boolean;
   passiveOverlayLabel: string | null;
   onStart: () => void;
   onRestart: () => void;
@@ -77,6 +80,8 @@ const defaultState: AppShellState = {
   overlayDescription: null,
   overlayPrimaryLabel: "Начать",
   overlaySecondaryLabel: null,
+  overlayQrValue: null,
+  overlayCompact: false,
   passiveOverlayLabel: null,
   onStart: () => undefined,
   onRestart: () => undefined,
@@ -117,6 +122,7 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
     state.presetValue === "king"
       ? "Цель игры: съесть фигуру короля соперника."
       : "Цель игры: съесть нужное число фигур соперника.";
+  const overlayQrUrl = state.overlayQrValue ? createQrSvgDataUrl(state.overlayQrValue) : null;
 
   return (
     <div className="shell">
@@ -163,7 +169,7 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
 
             {state.overlayTitle ? (
               <div className="overlay-panel">
-                <div className="overlay-card">
+                <div className={`overlay-card${state.overlayCompact ? " overlay-card-compact" : ""}`}>
                   <h2>{state.overlayTitle}</h2>
                   {state.overlayDescription ? <p>{state.overlayDescription}</p> : null}
                   <div className="overlay-actions">
@@ -179,6 +185,14 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
                       </button>
                     ) : null}
                   </div>
+                  {overlayQrUrl ? (
+                    <div className="overlay-qr">
+                      <img
+                        src={overlayQrUrl}
+                        alt="QR-код для ссылки на игру"
+                      />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}

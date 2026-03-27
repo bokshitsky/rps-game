@@ -539,6 +539,8 @@ function syncUi(): void {
   let overlayDescription: string | null = null;
   let overlayPrimaryLabel: string | null = null;
   let overlaySecondaryLabel: string | null = null;
+  let overlayQrValue: string | null = null;
+  let overlayCompact = false;
   let onOverlayPrimary: () => void = () => undefined;
   let onOverlaySecondary: () => void = () => undefined;
 
@@ -556,6 +558,8 @@ function syncUi(): void {
   } else if (isWaitingForOpponent) {
     overlayTitle = "Ждем подключения соперника";
     overlayDescription = "Отправьте ссылку второму игроку, и партия стартует сразу после подключения.";
+    overlayQrValue = shareUrl || null;
+    overlayCompact = true;
     overlayPrimaryLabel = copyLinkLabel;
     overlaySecondaryLabel = "Новая игра";
     onOverlayPrimary = () => {
@@ -619,6 +623,8 @@ function syncUi(): void {
     overlayDescription,
     overlayPrimaryLabel,
     overlaySecondaryLabel,
+    overlayQrValue,
+    overlayCompact,
     passiveOverlayLabel: showPassiveOpponentTurnOverlay ? "Ход соперника" : null,
     onStart: () => showConfigModal(true),
     onRestart: () => requestRestart(),
