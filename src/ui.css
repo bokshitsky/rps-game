@@ -135,6 +135,23 @@ button:disabled {
   z-index: 2;
 }
 
+.overlay-floating {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.overlay-floating .overlay-panel {
+  position: static;
+  transform: none;
+  pointer-events: auto;
+}
+
 .overlay-card,
 .choice-row,
 .setup-panel {

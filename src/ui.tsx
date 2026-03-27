@@ -34,6 +34,7 @@ export interface AppShellState {
   overlaySecondaryLabel: string | null;
   overlayQrValue: string | null;
   overlayCompact: boolean;
+  overlayOutsideBoard: boolean;
   passiveOverlayLabel: string | null;
   onStart: () => void;
   onRestart: () => void;
@@ -82,6 +83,7 @@ const defaultState: AppShellState = {
   overlaySecondaryLabel: null,
   overlayQrValue: null,
   overlayCompact: false,
+  overlayOutsideBoard: false,
   passiveOverlayLabel: null,
   onStart: () => undefined,
   onRestart: () => undefined,
@@ -123,6 +125,35 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
       ? "Цель игры: съесть фигуру короля соперника."
       : "Цель игры: съесть нужное число фигур соперника.";
   const overlayQrUrl = state.overlayQrValue ? createQrSvgDataUrl(state.overlayQrValue) : null;
+  const overlayContent = state.overlayTitle ? (
+    <div className="overlay-panel">
+      <div className={`overlay-card${state.overlayCompact ? " overlay-card-compact" : ""}`}>
+        <h2>{state.overlayTitle}</h2>
+        {state.overlayDescription ? <p>{state.overlayDescription}</p> : null}
+        <div className="overlay-actions">
+          {state.overlayPrimaryLabel ? (
+            <button onClick={state.onOverlayPrimary}>{state.overlayPrimaryLabel}</button>
+          ) : null}
+          {state.overlaySecondaryLabel ? (
+            <button
+              className="secondary"
+              onClick={state.onOverlaySecondary}
+            >
+              {state.overlaySecondaryLabel}
+            </button>
+          ) : null}
+        </div>
+        {overlayQrUrl ? (
+          <div className="overlay-qr">
+            <img
+              src={overlayQrUrl}
+              alt="QR-код для ссылки на игру"
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="shell">
@@ -167,35 +198,7 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
               ref={onGameHostRef}
             />
 
-            {state.overlayTitle ? (
-              <div className="overlay-panel">
-                <div className={`overlay-card${state.overlayCompact ? " overlay-card-compact" : ""}`}>
-                  <h2>{state.overlayTitle}</h2>
-                  {state.overlayDescription ? <p>{state.overlayDescription}</p> : null}
-                  <div className="overlay-actions">
-                    {state.overlayPrimaryLabel ? (
-                      <button onClick={state.onOverlayPrimary}>{state.overlayPrimaryLabel}</button>
-                    ) : null}
-                    {state.overlaySecondaryLabel ? (
-                      <button
-                        className="secondary"
-                        onClick={state.onOverlaySecondary}
-                      >
-                        {state.overlaySecondaryLabel}
-                      </button>
-                    ) : null}
-                  </div>
-                  {overlayQrUrl ? (
-                    <div className="overlay-qr">
-                      <img
-                        src={overlayQrUrl}
-                        alt="QR-код для ссылки на игру"
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
+            {!state.overlayOutsideBoard ? overlayContent : null}
 
             {state.passiveOverlayLabel ? (
               <div className="passive-turn-overlay">
@@ -249,6 +252,8 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
           </div>
         </div>
       </div>
+
+      {state.overlayOutsideBoard ? <div className="overlay-floating">{overlayContent}</div> : null}
 
       {state.showModal ? (
         <div className="modal-backdrop">
