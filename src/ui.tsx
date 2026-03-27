@@ -28,6 +28,7 @@ export interface AppShellState {
   selectedBattleChoice: PieceType | null;
   showSetup: boolean;
   setupStatusLabel: string | null;
+  setupDetails: string[];
   readyDisabled: boolean;
   readyLabel: string;
   rerollDisabled: boolean;
@@ -86,6 +87,7 @@ const defaultState: AppShellState = {
   selectedBattleChoice: null,
   showSetup: false,
   setupStatusLabel: null,
+  setupDetails: [],
   readyDisabled: false,
   readyLabel: "Начать игру",
   rerollDisabled: false,
@@ -140,7 +142,7 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
   const aspectRatio = `${canvasWidth} / ${canvasHeight}`;
   const modeDescription =
     state.presetValue === "king"
-      ? "Цель игры: съесть фигуру короля соперника."
+      ? "Цель игры: съесть фигуру короля соперника. Король не может следующим ходом вернуться на клетку, с которой только что ушел."
       : "Цель игры: съесть нужное число фигур соперника.";
   const overlayQrUrl = state.overlayQrValue ? createQrSvgDataUrl(state.overlayQrValue) : null;
   const overlayContent = state.overlayTitle ? (
@@ -260,6 +262,13 @@ function AppShell({ state, onGameHostRef }: AppShellProps) {
                 <div className="setup-panel">
                   {state.setupStatusLabel ? (
                     <div className="setup-status">{state.setupStatusLabel}</div>
+                  ) : null}
+                  {state.setupDetails.length > 0 ? (
+                    <div className="setup-details">
+                      {state.setupDetails.map((item) => (
+                        <div key={item}>{item}</div>
+                      ))}
+                    </div>
                   ) : null}
                   <div className="setup-actions">
                     <button

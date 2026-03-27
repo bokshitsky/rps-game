@@ -323,6 +323,16 @@ button:disabled {
   color: rgba(19, 33, 47, 0.78);
 }
 
+.setup-details {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.35;
+  color: rgba(19, 33, 47, 0.72);
+}
+
 .setup-actions {
   display: flex;
   gap: 10px;

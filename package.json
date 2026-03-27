@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:server": "poetry run uvicorn server.app:app --host 0.0.0.0 --port 8000",
+    "dev:server": "poetry run uvicorn server.app:app --host 192.168.1.219 --port 8000",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

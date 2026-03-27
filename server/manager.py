@@ -333,6 +333,22 @@ class RoomManager:
     def _is_adjacent(self, piece: Piece, col: int, row: int) -> bool:
         return abs(piece.col - col) + abs(piece.row - row) == 1
 
+    def _can_piece_enter_cell(self, piece: Piece, col: int, row: int) -> bool:
+        if piece.type != KING_TYPE:
+            return True
+        return not (
+            piece.king_return_forbidden_col == col
+            and piece.king_return_forbidden_row == row
+        )
+
+    def _record_piece_move(self, piece: Piece, from_col: int, from_row: int) -> None:
+        if piece.type != KING_TYPE:
+            return
+        if piece.col == from_col and piece.row == from_row:
+            return
+        piece.king_return_forbidden_col = from_col
+        piece.king_return_forbidden_row = from_row
+
     def _load_action_piece(self, room: Room, player_id: int, piece_id: str) -> Optional[Piece]:
         if room.connected_players() < 2 or room.phase != "turn" or room.current_player != player_id:
             return None
@@ -343,7 +359,7 @@ class RoomManager:
 
     def _move_piece(self, room: Room, player_id: int, piece_id: str, col: int, row: int) -> None:
         selected = self._load_action_piece(room, player_id, piece_id)
-        if not selected or not self._is_adjacent(selected, col, row):
+        if not selected or not self._is_adjacent(selected, col, row) or not self._can_piece_enter_cell(selected, col, row):
             return
 
         if room.get_piece_at(col, row):
@@ -354,6 +370,7 @@ class RoomManager:
         from_row = selected.row
         selected.col = col
         selected.row = row
+        self._record_piece_move(selected, from_col, from_row)
         self._set_animation_hint(
             room,
             {
@@ -369,7 +386,7 @@ class RoomManager:
 
     def _attempt_capture(self, room: Room, player_id: int, piece_id: str, col: int, row: int) -> None:
         selected = self._load_action_piece(room, player_id, piece_id)
-        if not selected or not self._is_adjacent(selected, col, row):
+        if not selected or not self._is_adjacent(selected, col, row) or not self._can_piece_enter_cell(selected, col, row):
             return
 
         target = room.get_piece_at(col, row)
@@ -387,6 +404,7 @@ class RoomManager:
             defender.alive = False
             attacker.col = defender.col
             attacker.row = defender.row
+            self._record_piece_move(attacker, attacker_from["col"], attacker_from["row"])
             self._reveal_piece(room, attacker)
             self._set_animation_hint(
                 room,
@@ -497,6 +515,7 @@ class RoomManager:
             defender_from = {"col": defender.col, "row": defender.row}
             attacker.col = defender.col
             attacker.row = defender.row
+            self._record_piece_move(attacker, attacker_from["col"], attacker_from["row"])
             self._reveal_piece(room, attacker)
             self._set_animation_hint(
                 room,

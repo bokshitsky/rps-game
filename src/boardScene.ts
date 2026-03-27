@@ -152,6 +152,13 @@ export function createBoardScene(deps: BoardSceneDeps): typeof Phaser.Scene {
         const selected = snapshot?.visiblePieces.find((piece) => piece.id === selectedPieceId);
         if (selected) {
           for (const { col, row } of this.adjacentCells(selected.col, selected.row)) {
+            if (
+              selected.knownType === "king" &&
+              selected.forbiddenReturnCol === col &&
+              selected.forbiddenReturnRow === row
+            ) {
+              continue;
+            }
             const occupant = snapshot?.visiblePieces.find((piece) => piece.col === col && piece.row === row);
             if (occupant?.owner === selected.owner) {
               continue;

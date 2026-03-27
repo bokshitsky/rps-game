@@ -11,6 +11,8 @@ export interface VisiblePiece {
   col: number;
   row: number;
   knownType: KnownType;
+  forbiddenReturnCol?: number | null;
+  forbiddenReturnRow?: number | null;
 }
 
 export interface BattleState {

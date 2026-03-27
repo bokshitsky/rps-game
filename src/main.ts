@@ -187,6 +187,15 @@ function isAdjacent(fromCol: number, fromRow: number, toCol: number, toRow: numb
   return Math.abs(fromCol - toCol) + Math.abs(fromRow - toRow) === 1;
 }
 
+function isForbiddenKingReturn(piece: ReturnType<typeof visiblePieceById>, col: number, row: number): boolean {
+  return Boolean(
+    piece &&
+      piece.knownType === "king" &&
+      piece.forbiddenReturnCol === col &&
+      piece.forbiddenReturnRow === row,
+  );
+}
+
 function syncLocalSelectionWithSnapshot(): void {
   if (!canUseLocalTurnInteractions()) {
     clearLocalSelection();
@@ -517,6 +526,12 @@ function handleBoardClick(col: number, row: number): void {
     return;
   }
 
+  if (isForbiddenKingReturn(selectedPiece, col, row)) {
+    syncUi();
+    requestRender();
+    return;
+  }
+
   if (!clickedPiece) {
     clearLocalSelection();
     syncUi();
@@ -587,6 +602,19 @@ function syncUi(): void {
         ? "Соперник готов"
         : "Соперник подключился"
     : null;
+  const setupDetails =
+    showSetup && snapshot
+      ? [
+          snapshot.parameters.preset === "king" ? "Режим: с королем" : "Режим: стандартный",
+          snapshot.parameters.preset === "king"
+            ? "Победа: съесть короля соперника"
+            : `Победа: съесть ${snapshot.parameters.victoryTarget} фигур`,
+          `Время: ${snapshot.parameters.timeLimitMinutes} мин. на игрока`,
+          ...(snapshot.parameters.preset === "king"
+            ? ["Король не может следующим ходом вернуться на предыдущую клетку"]
+            : []),
+        ]
+      : [];
   const battlePrompt =
     snapshot?.phase === "battle_pick" && snapshot.battle
       ? snapshot.battle.yourLocked
@@ -686,6 +714,7 @@ function syncUi(): void {
     selectedBattleChoice: localBattleChoice,
     showSetup,
     setupStatusLabel,
+    setupDetails,
     readyDisabled: Boolean(showSetup && snapshot?.setup.yourReady),
     readyLabel: "Начать игру",
     rerollDisabled: false,

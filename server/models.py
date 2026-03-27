@@ -17,6 +17,8 @@ class Piece:
     row: int
     alive: bool = True
     revealed_until_turn: int = -1
+    king_return_forbidden_col: Optional[int] = None
+    king_return_forbidden_row: Optional[int] = None
 
 
 @dataclass
@@ -114,6 +116,8 @@ class Room:
                     or self.turn_count <= piece.revealed_until_turn
                     else "hidden"
                 ),
+                "forbiddenReturnCol": piece.king_return_forbidden_col if piece.owner == player_id else None,
+                "forbiddenReturnRow": piece.king_return_forbidden_row if piece.owner == player_id else None,
             }
             for piece in self.pieces
             if piece.alive
